@@ -59,7 +59,7 @@ or [`--cross-check`](#other-options) (`[gds]`, for `fprime-gds`).
 | File | What it is |
 | --- | --- |
 | `<Component>.fpp` | the component: ports, and one declaration per mirrored command, event and channel |
-| `<Component>Types.fpp` | the remote's enums, arrays, structs and aliases, re-rooted into the component's module |
+| `<Component>Types.fpp` | the remote's enums, arrays, structs and aliases, re-rooted into the component's module, plus a port type per hooked member |
 | `<Component>.hpp` | the implementation class, deriving from the autocoded `<Component>ComponentBase` |
 | `<Component>.cpp` | constructor, packet dispatch, and the shared helpers |
 | `<Component>Commands.cpp` | one handler per forwarded command |
@@ -83,6 +83,10 @@ sync input port run: Svc.Sched     # queued components only: drains the queue
 plus the usual command, event, text-event, telemetry and time-get special ports.
 Connect `comIn` downstream of whatever deframes the remote's link, and `comOut` upstream
 of whatever frames it.
+
+Individual members of the remote's interface can also be
+[hooked onto ports of their own](#hooking-ports-onto-members), so that flight software
+rather than the ground can command the remote and hear what it reports.
 
 ## Getting started
 
@@ -228,8 +232,9 @@ appear. Uniqueness is enforced case-insensitively, because `fpp-to-cpp` derives
 ### Naming one thing at a time
 
 No scheme suits every member of a real dictionary, so members and generated types can be
-named outright. These are the two configuration keys with no flag — a table is not a shape
-a command line has — so `--config` is the way in:
+named outright. Like the [port tables](#hooking-ports-onto-members) and
+[`omit`](#omitting-members-from-the-ground-interface), these are configuration keys with no
+flag — a table is not a shape a command line has — so `--config` is the way in:
 
 ```yaml
 # dictionary name: the name the generated component declares
@@ -265,6 +270,112 @@ itself (`comIn`, `ProxyDecodeErrors`), and, for a type, a C++ keyword or a name 
 implicitly. A type override that collides with how another emitted type is spelled names
 that type, so both can be renamed.
 
+## Hooking ports onto members
+
+A proxy's job so far has been the *ground* interface: the remote's commands become commands
+you send from a ground system, and its reports become telemetry a ground system archives.
+Flight software on the target deployment cannot use any of that. It cannot send the remote a
+command without going through a command dispatcher, and it cannot react to one of the
+remote's events at all.
+
+So any member can additionally be hooked onto a **port of its own**. These are the four
+configuration keys that do it — tables, so `--config` is the way in:
+
+```yaml
+# invoking the port forwards the command to the remote
+command-ports:
+  Ref.dpDemo.SelectColor: true         # -> async input port dpDemo_SelectColor_cmdIn
+  CdhCore.cmdDisp.CMD_NO_OP: pingRemote
+
+# these fire when the matching packet arrives from the remote
+event-ports:
+  CdhCore.cmdDisp.OpCodeDispatched: true
+telemetry-ports:
+  CdhCore.cmdDisp.CommandsDispatched: true
+packet-ports:
+  RefPackets.CDH: true                 # keyed <packet set>.<packet>
+```
+
+`true` takes the derived port name; a string names the port outright; `false` is the same as
+leaving the line out, so a hook can be switched off without losing the note about it.
+
+**The port's type is generated, not named.** One `port` definition per hooked member goes
+into `<Component>Types.fpp`, with that member's own formals:
+
+```
+port dpDemo_SelectColor_CmdPort(color: Ref_DpDemo_ColorEnum)
+port cmdDisp_OpCodeDispatched_EventPort(Opcode: FwOpcodeType, $port: I32)
+port cmdDisp_CommandsDispatched_TlmPort(value: U32, timeTag: Fw.Time)
+port CDH_PacketPort(cmdDisp_CommandsDispatched: U32, ..., timeTag: Fw.Time)
+```
+
+which is what makes a hook correct by construction — a port named after a type the project
+already has would only be checked by `fpp-check`, long after the mistake was made.
+
+| Hook | Direction | What it carries |
+| --- | --- | --- |
+| `command-ports` | `async input port`, or `sync` on a passive component | the command's arguments |
+| `event-ports` | `output port` | the event's arguments |
+| `telemetry-ports` | `output port` | the value, and the **remote's** timestamp |
+| `packet-ports` | `output port` | every channel of the packet in wire order, then the one timestamp they share |
+
+A telemetry port keeps the remote's timestamp because `tlmWrite_` does too. An event port
+does not, for the same reason the mirrored event does not — see
+[event timestamps](#event-timestamps).
+
+An output port is invoked only when something is connected to it, and beside the mirrored
+member rather than instead of it: a hook is **additive**, and dropping the declaration is
+what [`omit`](#omitting-members-from-the-ground-interface) is for.
+
+A command port has no caller to answer — an F Prime input port carries no status back — so a
+packet it could not build or could not send is reported as `ProxyForwardError` and counted in
+`ProxyForwardErrors`. Those two are declared only when there is a command port, and their
+ids come after the other diagnostics', so hooking one renumbers nothing.
+
+Port names share **one** FPP name group, unlike commands, events and channels, which each
+have their own. That is why a derived name carries its kind (`_cmdIn`, `_eventOut`,
+`_tlmOut`, `_packetOut`): an event and a channel that legitimately share a member name — as
+a pair in the `Ref` dictionary does — cannot then ask for the same port. A name you choose is
+taken first and a derived name that would have collided with it is the one that grows, which
+is the rule [mangling](#name-mangling) already follows.
+
+## Omitting members from the ground interface
+
+`omit` takes dictionary names, or `fnmatch` globs over them, and leaves those members out of
+the generated FPP:
+
+```yaml
+omit:
+  - "Ref.dpDemo.*"
+  - "*_PRM_SET"
+  - CdhCore.cmdDisp.CMD_NO_OP
+```
+
+An omitted member declares no command, event or telemetry channel, and so contributes
+nothing to the target deployment's ground dictionary. What happens to its *traffic* depends
+on whether it also has a port:
+
+* **omitted, with a port** — still decoded, and reported through the port only. This is the
+  combination that gives a proxy nothing but port traffic: `omit: ["*"]` plus the hooks you
+  want.
+* **omitted, without a port** — not decoded at all. Its argument types come out of
+  `<Component>Types.fpp` with it, which is most of why a trimmed component is so much
+  smaller.
+
+Two consequences worth knowing:
+
+* **Local ids are dense over what remains**, so omitting a member moves the ids of the ones
+  after it. That is unavoidable — a declaration is what carries an id — and it is reported as
+  a warning, because a ground archive keyed on the old ones no longer reads.
+* **An omitted channel is still read.** `Svc::TlmChan` packs channelized values end to end
+  with no lengths, so reaching the next channel in a buffer means deserializing the one
+  nobody asked for and throwing it away. As long as *any* channel is reported, every channel
+  keeps its case in the decoder and its type in the model. Omit them all and channelized
+  decoding disappears entirely.
+
+A name or pattern matching nothing in the dictionary is an error, not a no-op — the same rule
+the [override tables](#naming-one-thing-at-a-time) follow, for the same reason.
+
 ### Other options
 
 | Option | Effect |
@@ -293,8 +404,15 @@ simply quiet. It therefore declares:
 * `ProxyPacketIgnored(descriptor, identifier)` — diagnostic, throttled. Expected for
   packet kinds outside the proxy's scope, such as files and data products.
 
+and, when there is a [command input port](#hooking-ports-onto-members):
+
+* `ProxyForwardErrors` — a counter;
+* `ProxyForwardError(remoteOpcode, status)` — warning high, throttled. A forwarded ground
+  command reports a failure as a command response; a port has no caller to answer, which is
+  why this exists.
+
 Their local ids come *after* every mirrored member's, so `--no-diagnostics` renumbers
-nothing.
+nothing, and the forward pair comes after the rest, so hooking a port does not either.
 
 ## Design notes
 
@@ -398,6 +516,12 @@ what `fprime-dict-to-cpp tests/data/RefTopologyDictionary.json -o RefProxy` prod
 every default, so reading it is the fastest way to see what this tool actually emits. It
 is also the review surface: a change anywhere in the generator turns up as a diff of real
 F Prime code rather than as a passing test suite and a shrug.
+
+`tests/goldens/RefPorts/` is the second one, at ~870 lines: the same dictionary with
+`omit: ["*"]` and four [hooked ports](#hooking-ports-onto-members). Nothing is declared, so
+what is left is exactly the port machinery — the generated port types, the input-port handler
+that forwards a command, an event decoder that reports through a port and nothing else.
+Reading it beside `RefProxy/` is the fastest way to see what the hooks do.
 
 ```sh
 venv/bin/python -m pytest tests/test_goldens.py    # compare

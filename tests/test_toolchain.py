@@ -229,6 +229,128 @@ class TestAutocodeAndCompile:
             assert not warnings, f"{source.name}:\n" + "\n".join(warnings[:10])
 
 
+#: A configuration exercising every hook: an input port for a command with no arguments,
+#: one with an enum, one with two strings (which the handler clamps), output ports for an
+#: event, a channel and a whole packet, and an ``omit`` glob that leaves two of those
+#: members with a port and nothing else.
+HOOKS: dict[str, object] = {
+    "omit": ("Ref.dpDemo.*",),
+    "command_ports": {
+        QualifiedName.parse("Ref.dpDemo.SelectColor"): True,
+        QualifiedName.parse("CdhCore.cmdDisp.CMD_NO_OP"): "pingRemote",
+        QualifiedName.parse("FileHandling.fileDownlink.SendFile"): True,
+    },
+    "event_ports": {
+        QualifiedName.parse("CdhCore.cmdDisp.OpCodeDispatched"): True,
+        QualifiedName.parse("Ref.dpDemo.DpStarted"): True,
+    },
+    "telemetry_ports": {
+        QualifiedName.parse("CdhCore.cmdDisp.CommandsDispatched"): True
+    },
+    "packet_ports": {"RefPackets.CDH": True},
+}
+
+#: The same, with everything omitted, which is the "ports only" component.
+PORTS_ONLY: dict[str, object] = {**HOOKS, "omit": ("*",)}
+
+
+class TestHookedPorts:
+    """The port hooks and ``omit``, which change both halves of the output at once."""
+
+    @pytest.mark.parametrize("kind", list(ComponentKind))
+    def test_fpp_check_accepts_hooked_ports(
+        self, toolchain: Toolchain, ref: Dictionary, tmp_path: Path, kind: ComponentKind
+    ) -> None:
+        # A generated port type reaches the model verbatim, formals and all, so fpp-check
+        # is the authority on whether a dictionary's argument names survive becoming one.
+        plan = resolve(
+            ref,
+            Config(
+                component="RefProxy",
+                namespace="RefProxy",
+                kind=kind,
+                naming=Naming.preset("instance"),
+                **HOOKS,  # type: ignore[arg-type]
+            ),
+        )
+        types_file = tmp_path / "RefProxyTypes.fpp"
+        model_file = tmp_path / "RefProxy.fpp"
+        types_file.write_text(render_types(plan))
+        model_file.write_text(render_component(plan))
+        result = toolchain.check(types_file, model_file)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    @pytest.mark.parametrize(
+        ("label", "options"), [("hooked", HOOKS), ("ports-only", PORTS_ONLY)]
+    )
+    def test_compiles(
+        self,
+        toolchain: Toolchain,
+        tmp_path: Path,
+        label: str,
+        options: dict[str, object],
+    ) -> None:
+        if build_probe.compiler() is None:
+            pytest.skip("no C++ compiler on PATH")
+        if not build_probe.framework_is_built(toolchain):
+            pytest.skip("the F Prime checkout has not been autocoded")
+        result = build_probe.run(tmp_path / "out", keep=False, **options)
+        assert result.ok, "\n\n".join(result.failures())
+        assert result.compiles, "nothing was compiled"
+
+    def test_compiles_without_warnings(
+        self, toolchain: Toolchain, tmp_path: Path
+    ) -> None:
+        # The packet-port decoder declares every slot up front rather than one per block,
+        # which is exactly the shape -Wunused-variable has opinions about.
+        executable = build_probe.compiler()
+        if executable is None:
+            pytest.skip("no C++ compiler on PATH")
+        if not build_probe.framework_is_built(toolchain):
+            pytest.skip("the F Prime checkout has not been autocoded")
+
+        output = tmp_path / "out"
+        result = build_probe.run(output, keep=False, **HOOKS)
+        assert result.ok, "\n\n".join(result.failures())
+
+        includes = build_probe.include_paths(toolchain, output)
+        for source in sorted(output.glob("RefProxy*.cpp")):
+            if source.name.endswith("ComponentAc.cpp"):
+                continue
+            run = subprocess.run(
+                [
+                    executable,
+                    "-std=c++14",
+                    "-fsyntax-only",
+                    "-Wall",
+                    "-Wextra",
+                    *includes,
+                    str(source),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            warnings = [
+                line for line in run.stderr.splitlines() if ": warning:" in line
+            ]
+            assert not warnings, f"{source.name}:\n" + "\n".join(warnings[:10])
+
+    def test_ports_only_compiles_without_diagnostics(
+        self, toolchain: Toolchain, tmp_path: Path
+    ) -> None:
+        # Without diagnostics the forward-error helper keeps its signature and has nothing
+        # to do with its arguments, which is a different code path again.
+        if build_probe.compiler() is None:
+            pytest.skip("no C++ compiler on PATH")
+        if not build_probe.framework_is_built(toolchain):
+            pytest.skip("the F Prime checkout has not been autocoded")
+        result = build_probe.run(
+            tmp_path / "out", keep=False, diagnostics=False, **PORTS_ONLY
+        )
+        assert result.ok, "\n\n".join(result.failures())
+
+
 class TestCheckedInGoldens:
     """The goldens are what a reader reviews, so they are what has to build.
 
@@ -237,11 +359,15 @@ class TestCheckedInGoldens:
     drift into being unbuildable while the suite still passes.
     """
 
+    @pytest.mark.parametrize("tree", ["RefProxy", "RefPorts"])
     def test_the_golden_tree_autocodes_and_compiles(
-        self, toolchain: Toolchain, tmp_path: Path
+        self, toolchain: Toolchain, tmp_path: Path, tree: str
     ) -> None:
-        from test_goldens import COMPONENT, GOLDEN_FILES
+        from test_goldens import COMPONENT, GOLDEN_FILES, PORTED, PORTED_FILES
 
+        COMPONENT, GOLDEN_FILES = (
+            (COMPONENT, GOLDEN_FILES) if tree == "RefProxy" else (PORTED, PORTED_FILES)
+        )
         source = Path(__file__).parent / "goldens" / COMPONENT
         if not source.is_dir():
             pytest.skip("goldens have not been generated yet")
@@ -250,8 +376,8 @@ class TestCheckedInGoldens:
         if not build_probe.framework_is_built(toolchain):
             pytest.skip("the F Prime checkout has not been autocoded")
 
-        # The goldens were generated with include_prefix=RefProxy, so their includes are
-        # "RefProxy/RefProxy.hpp".  Laying the tree out under a RefProxy/ directory and
+        # Each tree was generated with include_prefix equal to its own name, so its
+        # includes read "RefProxy/RefProxy.hpp".  Laying it out under that directory and
         # compiling from its parent is what makes that resolve, exactly as a real build
         # would.
         root = tmp_path / COMPONENT

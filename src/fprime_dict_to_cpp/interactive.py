@@ -189,10 +189,17 @@ def _skeleton(options: Options, source: Path, output: Path, component: str) -> s
         "component": component,
         "kind": options.kind,
     }
-    if options.name_overrides:
-        chosen["names"] = options.name_overrides
-    if options.type_name_overrides:
-        chosen["type-names"] = options.type_name_overrides
+    for key, table in (
+        ("names", options.name_overrides),
+        ("type-names", options.type_name_overrides),
+        ("omit", options.omit),
+        ("command-ports", options.command_ports),
+        ("event-ports", options.event_ports),
+        ("telemetry-ports", options.telemetry_ports),
+        ("packet-ports", options.packet_ports),
+    ):
+        if table:
+            chosen[key] = table
     return config_file.skeleton(
         chosen,
         defaults={

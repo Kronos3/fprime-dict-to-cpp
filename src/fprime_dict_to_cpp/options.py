@@ -28,7 +28,7 @@ from __future__ import annotations
 import dataclasses
 import types
 import typing
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
@@ -70,6 +70,9 @@ class Shape(Enum):
 
     TABLE = "table"
     """A mapping, which a command line has no good shape for; ``--config`` only."""
+
+    LIST = "list"
+    """A sequence, for the same reason; ``--config`` only."""
 
 
 def _unresolved(value: Any) -> Any:
@@ -235,7 +238,14 @@ def _accepts(annotation: Any, spec: Spec) -> tuple[Shape, Callable[[Any], Any]]:
         dict,
         typing.get_origin(Mapping[Any, Any]),
     ):
-        return Shape.TABLE, _table(typing.get_args(declared)[0])
+        key, value = typing.get_args(declared)
+        return Shape.TABLE, _table(key, value)
+    if typing.get_origin(declared) in (
+        Sequence,
+        tuple,
+        typing.get_origin(Sequence[Any]),
+    ):
+        return Shape.LIST, _list
     if declared is str:
         return Shape.TEXT, _text(empty=spec.empty)
     raise TypeError(f"no option accepts {annotation!r}")
@@ -285,28 +295,61 @@ def _one_of(
     return coerce
 
 
-def _table(key: Any) -> Callable[[Any], dict[Any, str]]:
-    """A ``dictionary name: generated name`` table, checked as far as one file can be.
+def _table(key: Any, value_type: Any) -> Callable[[Any], dict[Any, Any]]:
+    """A table keyed by dictionary name, checked as far as one file can be.
 
     Whether a name is a *usable* identifier, and whether the dictionary has anything by
     that name, are questions for :func:`~fprime_dict_to_cpp.plan.resolve`, which is where
     the answers live and where the Python API needs them checked too.
+
+    A port table's values also accept ``true`` and ``false``, which is what makes hooking a
+    port a one-word answer where naming it is not the interesting part.
     """
     build = _TABLE_KEYS[key]
+    switchable = set(_members(value_type)) == {bool, str}
+    accepts = (
+        "a mapping of dictionary names to a port name, or to true or false"
+        if switchable
+        else "a mapping of dictionary names to generated names"
+    )
+    wanted = "a name, true or false" if switchable else "a name"
 
-    def coerce(value: Any) -> dict[Any, str]:
+    def coerce(value: Any) -> dict[Any, Any]:
         if not isinstance(value, Mapping):
-            raise Invalid("a mapping of dictionary names to generated names")
-        table: dict[Any, str] = {}
+            raise Invalid(accepts)
+        table: dict[Any, Any] = {}
         for name, chosen in value.items():
             if not isinstance(name, str) or not name.strip():
                 raise Invalid(f"dictionary names as its keys, found {name!r}")
+            if switchable and isinstance(chosen, bool):
+                table[build(name.strip())] = chosen
+                continue
             if not isinstance(chosen, str) or not chosen.strip():
-                raise Rejected(f"{name}: expected a name, found {chosen!r}")
+                raise Rejected(f"{name}: expected {wanted}, found {chosen!r}")
             table[build(name.strip())] = chosen.strip()
         return table
 
     return coerce
+
+
+def _list(value: Any) -> tuple[str, ...]:
+    """A list of names or patterns.  A bare string is refused rather than wrapped.
+
+    Because ``omit: Ref.dpDemo.*`` reads as one entry and is almost certainly meant as one,
+    but taking it silently would make ``omit: [a, b]`` and ``omit: a`` two spellings of the
+    same shape, and one of them would eventually be written where a list belonged.
+    """
+    if isinstance(value, str) or not isinstance(value, Iterable):
+        raise Invalid("a list of dictionary names or patterns")
+    entries: list[str] = []
+    for index, entry in enumerate(value):
+        if not isinstance(entry, str) or not entry.strip():
+            raise Rejected(
+                f"entry {index + 1}: expected a dictionary name or pattern, "
+                f"found {entry!r}"
+            )
+        entries.append(entry.strip())
+    return tuple(entries)
 
 
 # ---------------------------------------------------------------------------
@@ -460,6 +503,82 @@ class Options:
         default_factory=dict,
     )
 
+    omit: Sequence[str] = option(
+        Spec(
+            "omit",
+            flag=False,
+            note="members the component does not declare, as dictionary names or globs; "
+            "an omitted member keeps a port hooked onto it and loses only its command, "
+            "event or telemetry declaration, and one matching nothing is an error",
+            example=(
+                "omit:",
+                '  - "Ref.dpDemo.*"',
+                '  - "*_PRM_SET"',
+                "  - CdhCore.cmdDisp.CMD_NO_OP",
+            ),
+        ),
+        default_factory=tuple,
+    )
+
+    command_ports: Mapping[QualifiedName, bool | str] = option(
+        Spec(
+            "command-ports",
+            flag=False,
+            note="commands to hook an input port onto: invoking the port forwards the "
+            "command to the remote, with no ground command in the way.  true takes the "
+            "derived port name, a string names the port outright",
+            example=(
+                "command-ports:",
+                "  Ref.dpDemo.SelectColor: true  # -> dpDemo_SelectColor_cmdIn",
+                "  CdhCore.cmdDisp.CMD_NO_OP: pingRemote",
+            ),
+        ),
+        default_factory=dict,
+    )
+
+    event_ports: Mapping[QualifiedName, bool | str] = option(
+        Spec(
+            "event-ports",
+            flag=False,
+            note="events to hook an output port onto, which fires with the event's own "
+            "arguments when one arrives from the remote; spelled as command-ports is",
+            example=(
+                "event-ports:",
+                "  CdhCore.cmdDisp.OpCodeDispatched: true",
+            ),
+        ),
+        default_factory=dict,
+    )
+
+    telemetry_ports: Mapping[QualifiedName, bool | str] = option(
+        Spec(
+            "telemetry-ports",
+            flag=False,
+            note="telemetry channels to hook an output port onto, which fires with the "
+            "value and the remote's own timestamp; spelled as command-ports is",
+            example=(
+                "telemetry-ports:",
+                "  CdhCore.cmdDisp.CommandsDispatched: true",
+            ),
+        ),
+        default_factory=dict,
+    )
+
+    packet_ports: Mapping[str, bool | str] = option(
+        Spec(
+            "packet-ports",
+            flag=False,
+            note="telemetry packets to hook an output port onto, keyed <packet "
+            "set>.<packet>; the port carries every channel of the packet in wire order "
+            "and then the one timestamp they share",
+            example=(
+                "packet-ports:",
+                "  RefPackets.CDH: true",
+            ),
+        ),
+        default_factory=dict,
+    )
+
     type_prefix: str = option(
         Spec(
             "type-prefix",
@@ -596,6 +715,11 @@ class Options:
             name_overrides=self.name_overrides,
             type_prefix=self.type_prefix,
             type_name_overrides=self.type_name_overrides,
+            omit=self.omit,
+            command_ports=self.command_ports,
+            event_ports=self.event_ports,
+            telemetry_ports=self.telemetry_ports,
+            packet_ports=self.packet_ports,
             packetized=self.packetized,
             diagnostics=self.diagnostics,
             include_prefix=self.include_prefix_for(output),

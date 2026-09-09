@@ -194,6 +194,77 @@ class TestOverrideTables:
         }
 
 
+class TestPortTablesAndOmit:
+    """The port tables take a name *or* a boolean, and ``omit`` takes a list."""
+
+    def test_a_port_table_accepts_true_for_the_derived_name(
+        self, write  # type: ignore[no-untyped-def]
+    ) -> None:
+        path = write(
+            "command-ports:\n"
+            "  Ref.dpDemo.SelectColor: true\n"
+            "  CdhCore.cmdDisp.CMD_NO_OP: pingRemote\n"
+            "  FileHandling.fileDownlink.SendFile: false\n"
+        )
+        assert config_file.load(path) == {
+            "command_ports": {
+                QualifiedName.parse("Ref.dpDemo.SelectColor"): True,
+                QualifiedName.parse("CdhCore.cmdDisp.CMD_NO_OP"): "pingRemote",
+                QualifiedName.parse("FileHandling.fileDownlink.SendFile"): False,
+            }
+        }
+
+    def test_packet_ports_stay_qualified_strings(
+        self, write  # type: ignore[no-untyped-def]
+    ) -> None:
+        # A packet is not a member, so its key is the plain <set>.<packet> text rather
+        # than a parsed member name.
+        assert config_file.load(write("packet-ports:\n  RefPackets.CDH: true\n")) == {
+            "packet_ports": {"RefPackets.CDH": True}
+        }
+
+    def test_a_port_table_says_what_it_will_take(
+        self, write  # type: ignore[no-untyped-def]
+    ) -> None:
+        with pytest.raises(config_file.ConfigError) as raised:
+            config_file.load(write("event-ports:\n  Ref.dpDemo.DpStarted: 42\n"))
+        assert "expected a name, true or false, found 42" in str(raised.value)
+
+    @pytest.mark.parametrize("key", ["event_ports", "telemetry_ports"])
+    def test_underscores_work_for_the_new_keys_too(
+        self, write, key: str  # type: ignore[no-untyped-def]
+    ) -> None:
+        path = write(f"{key}:\n  Ref.dpDemo.DpStarted: true\n")
+        assert list(config_file.load(path)) == [key]
+
+    def test_omit_is_a_list_of_names_and_patterns(
+        self, write  # type: ignore[no-untyped-def]
+    ) -> None:
+        path = write('omit:\n  - "Ref.dpDemo.*"\n  - CdhCore.cmdDisp.CMD_NO_OP\n')
+        assert config_file.load(path) == {
+            "omit": ("Ref.dpDemo.*", "CdhCore.cmdDisp.CMD_NO_OP")
+        }
+
+    def test_an_empty_omit_list_is_accepted(self, write) -> None:  # type: ignore[no-untyped-def]
+        assert config_file.load(write("omit: []\n")) == {"omit": ()}
+
+    def test_omit_refuses_a_bare_string(self, write) -> None:  # type: ignore[no-untyped-def]
+        # One entry written without the dash reads as a list of one and is not, and
+        # accepting it would make two spellings of the same shape.
+        with pytest.raises(config_file.ConfigError) as raised:
+            config_file.load(write("omit: Ref.dpDemo.SelectColor\n"))
+        assert "a list of dictionary names or patterns" in str(raised.value)
+
+    def test_omit_names_the_entry_it_could_not_read(
+        self, write  # type: ignore[no-untyped-def]
+    ) -> None:
+        with pytest.raises(config_file.ConfigError) as raised:
+            config_file.load(write("omit:\n  - Ref.dpDemo.SelectColor\n  - 7\n"))
+        assert "omit: entry 2: expected a dictionary name or pattern, found 7" in str(
+            raised.value
+        )
+
+
 class TestPaths:
     def test_a_relative_path_resolves_against_the_file(
         self, write, tmp_path: Path  # type: ignore[no-untyped-def]
@@ -334,6 +405,32 @@ class TestSkeleton:
             {"type-names": {"Ref.DpDemo.ColorEnum": "DemoColor"}}
         )
         assert "\ntype-names:\n  Ref.DpDemo.ColorEnum: DemoColor\n" in text
+
+    def test_writes_a_list_it_was_given(self) -> None:
+        text = config_file.skeleton({"omit": ("Ref.dpDemo.*", "*_PRM_SET")})
+        assert '\nomit:\n  - Ref.dpDemo.*\n  - "*_PRM_SET"\n' in text
+
+    def test_writes_a_port_table_s_booleans_as_booleans(self) -> None:
+        text = config_file.skeleton(
+            {"command-ports": {QualifiedName.parse("Ref.dpDemo.SelectColor"): True}}
+        )
+        assert "\ncommand-ports:\n  Ref.dpDemo.SelectColor: true\n" in text
+
+    def test_what_it_writes_is_what_it_reads_back(
+        self, write  # type: ignore[no-untyped-def]
+    ) -> None:
+        # The skeleton is the file -i leaves behind, so a run configured through it has to
+        # arrive at the answers that went in -- including the shapes with no flag.
+        chosen = {
+            "component": "P",
+            "omit": ("Ref.dpDemo.*", "*_PRM_SET"),
+            "command-ports": {QualifiedName.parse("Ref.dpDemo.SelectColor"): True},
+            "packet-ports": {"RefPackets.CDH": "cdhOut"},
+        }
+        loaded = config_file.load(write(config_file.skeleton(chosen)))
+        assert loaded["omit"] == chosen["omit"]
+        assert loaded["command_ports"] == chosen["command-ports"]
+        assert loaded["packet_ports"] == chosen["packet-ports"]
 
     def test_the_header_is_comments(self) -> None:
         text = config_file.skeleton({"component": "P"}, header=["hello", "", "world"])

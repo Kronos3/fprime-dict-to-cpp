@@ -47,6 +47,49 @@ names:
 type-names:
   Ref.DpDemo.ColorEnum: DemoColor
 
+# Members the component does not declare, as dictionary names or fnmatch globs.  An
+# omitted member gets no command, event or telemetry declaration, and so no entry in
+# this deployment's ground dictionary -- but it keeps any port hooked onto it below, and
+# that is the combination that gives a proxy nothing but port traffic.
+#
+# A name or pattern matching nothing in the dictionary is an error, not a no-op.  Local
+# ids are dense over what remains, so omitting a member renumbers the ones after it,
+# which is reported as a warning.
+# omit:
+#   - "Ref.dpDemo.*"
+#   - "*_PRM_SET"
+
+# Commands to hook an input port onto.  Invoking the port serializes the remote's opcode
+# and the port's arguments into a command packet and sends it, with no ground command and
+# no command response in the way -- which is how flight software commands the remote.
+#
+# true takes the derived port name (dpDemo_SelectColor -> dpDemo_SelectColor_cmdIn); a
+# string names the port outright; false is the same as leaving the line out, so a hook
+# can be switched off without losing the note about it.  The port's own type is generated
+# into <Component>Types.fpp with the command's formals, so it cannot be handed the wrong
+# arguments.
+# command-ports:
+#   Ref.dpDemo.SelectColor: true
+#   CdhCore.cmdDisp.CMD_NO_OP: pingRemote
+
+# Events to hook an output port onto, which fires with the event's own arguments when one
+# arrives from the remote.  Spelled as command-ports is.
+# event-ports:
+#   CdhCore.cmdDisp.OpCodeDispatched: true
+
+# Telemetry channels to hook an output port onto.  The port carries the value and the
+# timestamp the REMOTE reported, which is the same pair the generated tlmWrite_ helper is
+# given.
+# telemetry-ports:
+#   CdhCore.cmdDisp.CommandsDispatched: true
+
+# Telemetry packets to hook an output port onto, keyed <packet set>.<packet>.  The port
+# carries one formal per channel of the packet in wire order, then the single timestamp
+# they all share.  A packet is a layout rather than a declared member, so there is
+# nothing in omit for one: a packet port is what makes a packet visible at all.
+# packet-ports:
+#   RefPackets.CDH: true
+
 # Prepend this to every generated type name, if one would otherwise clash with a
 # framework type of the same leaf name.
 type-prefix: ""

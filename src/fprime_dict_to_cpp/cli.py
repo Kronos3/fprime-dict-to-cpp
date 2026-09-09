@@ -21,7 +21,7 @@ from .cpp import cpp_file_names
 from .generate import Generated, generate
 from .model import Dictionary, DictionaryError, NamingError
 from .options import Invalid, Options, Shape, Spec, specs
-from .plan import Config, resolve
+from .plan import Config, Plan, resolve
 
 __all__ = ["build_parser", "main"]
 
@@ -247,12 +247,46 @@ def _override_note(config: Config) -> str | None:
     return f"  named explicitly: {', '.join(parts)}"
 
 
+def _hook_notes(plan: Plan) -> list[str]:
+    """What the port tables and ``omit`` did, said only when they did something.
+
+    Worth its own lines rather than folded into the counts above: the counts are what the
+    ground sees, and a hooked port is deliberately not part of that.
+    """
+    lines: list[str] = []
+    if plan.ports:
+        kinds = ", ".join(
+            f"{count} {noun}"
+            for noun, count in (
+                ("command", len(plan.input_ports)),
+                ("report", len(plan.output_ports)),
+            )
+            if count
+        )
+        lines.append(f"  hooked ports: {kinds}")
+    dictionary = plan.dictionary
+    total = len(dictionary.commands) + len(dictionary.events) + len(dictionary.channels)
+    planned = len(plan.commands) + len(plan.events) + len(plan.channels)
+    declared = (
+        len(plan.declared_commands)
+        + len(plan.declared_events)
+        + len(plan.declared_channels)
+    )
+    if total != declared:
+        lines.append(
+            f"  omitted from the ground interface: {total - declared} member(s), of "
+            f"which {planned - declared} are still decoded for a port"
+        )
+    return lines
+
+
 def _report(result: Generated, scaffold: interactive.Scaffold | None = None) -> None:
     """Summarise a completed run, and say how to iterate on what it set up."""
     plan = result.plan
     print(
-        f"{plan.config.component}: {len(plan.commands)} commands, "
-        f"{len(plan.events)} events, {len(plan.channels)} telemetry channels"
+        f"{plan.config.component}: {len(plan.declared_commands)} commands, "
+        f"{len(plan.declared_events)} events, "
+        f"{len(plan.declared_channels)} telemetry channels"
         + (f", {len(plan.packets)} telemetry packets" if plan.has_packets else "")
     )
     print(
@@ -260,6 +294,8 @@ def _report(result: Generated, scaffold: interactive.Scaffold | None = None) -> 
         f"(of {len(plan.dictionary.type_defs)} in the dictionary; the rest are "
         f"unreachable from any mirrored member)"
     )
+    for line in _hook_notes(plan):
+        print(line)
     note = _override_note(plan.config)
     if note:
         print(note)
@@ -301,10 +337,13 @@ def _report_dry_run(
         f"from {parsed.metadata.deployment_name}"
     )
     print(
-        f"  {len(plan.commands)} commands, {len(plan.events)} events, "
-        f"{len(plan.channels)} telemetry channels, {len(plan.packets)} telemetry packets"
+        f"  {len(plan.declared_commands)} commands, {len(plan.declared_events)} events, "
+        f"{len(plan.declared_channels)} telemetry channels, "
+        f"{len(plan.packets)} telemetry packets"
     )
     print(f"  {len(plan.spelling.type_defs())} type definitions")
+    for line in _hook_notes(plan):
+        print(line)
     note = _override_note(config)
     if note:
         print(note)

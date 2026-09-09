@@ -15,6 +15,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -71,6 +72,11 @@ def generate(
     packetized: bool = True,
     name_overrides: dict[QualifiedName, str] | None = None,
     type_name_overrides: dict[str, str] | None = None,
+    omit: Sequence[str] = (),
+    command_ports: dict[QualifiedName, bool | str] | None = None,
+    event_ports: dict[QualifiedName, bool | str] | None = None,
+    telemetry_ports: dict[QualifiedName, bool | str] | None = None,
+    packet_ports: dict[str, bool | str] | None = None,
     path: Path = DICTIONARY,
 ) -> tuple[Config, Path, Path, tuple[str, ...]]:
     """Write a component's model and implementation into ``output``.
@@ -86,6 +92,11 @@ def generate(
         naming=Naming.preset(naming),
         name_overrides=name_overrides or {},
         type_name_overrides=type_name_overrides or {},
+        omit=omit,
+        command_ports=command_ports or {},
+        event_ports=event_ports or {},
+        telemetry_ports=telemetry_ports or {},
+        packet_ports=packet_ports or {},
         diagnostics=diagnostics,
         packetized=packetized,
         include_prefix="",

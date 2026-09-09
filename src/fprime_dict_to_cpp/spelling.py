@@ -25,9 +25,12 @@ from enum import Enum
 from .model import (
     AliasDef,
     ArrayDef,
+    Channel,
+    Command,
     Dictionary,
     DictionaryError,
     EnumDef,
+    Event,
     NamingError,
     StructDef,
     TypeDef,
@@ -38,6 +41,7 @@ from .model import (
 __all__ = [
     "CPP_KEYWORDS",
     "Context",
+    "Mirrored",
     "Spelling",
     "TYPE_IDENTIFIER",
     "TypeNamer",
@@ -50,15 +54,44 @@ class Context(Enum):
     """Where a value is being spelled, which decides how a string is typed.
 
     ``fpp-to-cpp`` hands a command's string argument to the handler as
-    ``Fw::CmdStringArg``, but declares an event argument and a telemetry value as
-    ``const Fw::StringBase&``.  A local the generator declares in order to
+    ``Fw::CmdStringArg``, but declares an event argument, a telemetry value and a port
+    formal as ``const Fw::StringBase&``.  A local the generator declares in order to
     *deserialize* into needs a concrete sized type, which is what :attr:`LOCAL` is for.
     """
 
     COMMAND = "command"
     EVENT = "event"
     TELEMETRY = "telemetry"
+    PORT = "port"
     LOCAL = "local"
+
+
+@dataclass(frozen=True)
+class Mirrored:
+    """The dictionary members a proxy touches, and so the types it has to declare.
+
+    A dictionary describes a whole deployment; a proxy may be configured to mirror only
+    part of it -- see :attr:`~fprime_dict_to_cpp.plan.Config.omit` -- and a type reachable
+    only from a member that was left out is a generated C++ file pair nobody includes.  So
+    :meth:`Spelling.roots` asks this rather than the dictionary, and
+    :func:`~fprime_dict_to_cpp.plan.resolve` fills it in with what survived selection.
+
+    An omitted *channel* usually appears here anyway: channelized telemetry packs values
+    end to end, so walking past one still needs its type.
+    """
+
+    commands: tuple[Command, ...] = ()
+    events: tuple[Event, ...] = ()
+    channels: tuple[Channel, ...] = ()
+
+    @classmethod
+    def everything(cls, dictionary: Dictionary) -> Mirrored:
+        """Every member the dictionary declares, which is the default selection."""
+        return cls(
+            commands=dictionary.commands,
+            events=dictionary.events,
+            channels=dictionary.channels,
+        )
 
 
 #: C++ keywords, per the C++20 keyword table plus the alternative operator spellings.
@@ -203,9 +236,17 @@ class TypeNamer:
 class Spelling:
     """Spells dictionary types for the generated FPP and C++."""
 
-    def __init__(self, dictionary: Dictionary, namer: TypeNamer) -> None:
+    def __init__(
+        self,
+        dictionary: Dictionary,
+        namer: TypeNamer,
+        mirrored: Mirrored | None = None,
+    ) -> None:
         self._dictionary = dictionary
         self.namer = namer
+        self._mirrored = (
+            mirrored if mirrored is not None else Mirrored.everything(dictionary)
+        )
         self._reachable_cache: set[str] | None = None
 
     # -- FPP ----------------------------------------------------------
@@ -304,13 +345,13 @@ class Spelling:
     # -- selection and ordering ---------------------------------------
 
     def roots(self) -> set[str]:
-        """The qualified type names the dictionary's members refer to directly."""
+        """The qualified type names the mirrored members refer to directly."""
         names: set[str] = set()
-        for command in self._dictionary.commands:
+        for command in self._mirrored.commands:
             names.update(_qualified(p.type for p in command.params))
-        for event in self._dictionary.events:
+        for event in self._mirrored.events:
             names.update(_qualified(p.type for p in event.params))
-        for channel in self._dictionary.channels:
+        for channel in self._mirrored.channels:
             names.update(_qualified([channel.type]))
         return names
 

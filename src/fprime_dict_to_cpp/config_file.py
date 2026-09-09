@@ -238,6 +238,11 @@ def _entry(key: str, value: Any, *, commented: bool) -> list[str]:
             f"{_scalar(name)}: {_scalar(chosen)}" for name, chosen in value.items()
         ]
         return [f"{prefix}{key}:", *(f"{prefix}{line}" for line in _indented(entries))]
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return [f"{prefix}{key}: []"]
+        entries = [f"- {_scalar(entry)}" for entry in value]
+        return [f"{prefix}{key}:", *(f"{prefix}{line}" for line in _indented(entries))]
     return [f"{prefix}{key}: {_scalar(value)}"]
 
 

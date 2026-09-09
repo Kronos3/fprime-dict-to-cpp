@@ -6,12 +6,16 @@ tree that may name enum constants by their *original* qualified path
 in every nested position.  A default affects neither the wire format nor anything the
 proxy does with a value, so the cost is not worth paying; FPP falls back to each type's
 zero value.
+
+The port types a hooked port needs are emitted here too.  They are types, they belong in
+the same module, and keeping them out of ``<Component>.fpp`` leaves that file as the
+component and nothing else.
 """
 
 from __future__ import annotations
 
 from ..model import AliasDef, ArrayDef, EnumDef, StructDef, TypeDef
-from ..plan import Plan
+from ..plan import Plan, PortPlan
 from ..spelling import safe_identifier
 from .keywords import escape
 from .writer import FppWriter, string_literal
@@ -35,7 +39,43 @@ def render_types(plan: Plan) -> str:
         for definition in plan.spelling.type_defs():
             writer.blank()
             _definition(writer, plan, definition)
+        _ports(writer, plan)
     return writer.render()
+
+
+def _ports(writer: FppWriter, plan: Plan) -> None:
+    """The port types the hooked ports take.
+
+    One per hooked member rather than one shared type per kind: the formals *are* the
+    member's, so a port that mirrors a command's arguments cannot be handed the wrong ones.
+    """
+    ports = plan.ports
+    if not ports:
+        return
+    writer.banner("Hooked port types")
+    writer.comment(
+        "One port type per hooked member, its formals taken from that member.  These are\n"
+        "what lets flight software send a remote command, or hear about a remote event,\n"
+        "without going through the ground interface."
+    )
+    for port in ports:
+        writer.blank()
+        _port(writer, port)
+
+
+def _port(writer: FppWriter, port: PortPlan) -> None:
+    params = []
+    for param in port.params:
+        text = f"{escape(param.name)}: {param.fpp}"
+        if param.annotation:
+            text = f"{text} @< {' '.join(param.annotation.split())}"
+        params.append(text)
+    writer.declaration(
+        f"port {escape(port.type_name)}",
+        params,
+        (),
+        annotation=f"{port.annotation}\n[{port.origin}]",
+    )
 
 
 def _preamble(writer: FppWriter, plan: Plan) -> None:

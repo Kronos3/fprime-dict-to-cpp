@@ -28,11 +28,48 @@ from conftest import GOLDENS, assert_matches_golden
 from fprime_dict_to_cpp.cmake import render_cmake
 from fprime_dict_to_cpp.cpp import cpp_file_names, render_implementation
 from fprime_dict_to_cpp.fpp import render_component, render_types
-from fprime_dict_to_cpp.model import ComponentKind, Dictionary
+from fprime_dict_to_cpp.model import ComponentKind, Dictionary, QualifiedName
 from fprime_dict_to_cpp.naming import Naming
 from fprime_dict_to_cpp.plan import Config, Plan, resolve
 
 COMPONENT = "RefProxy"
+
+#: The second golden tree: the same dictionary with nothing declared and four ports hooked.
+#:
+#: Small on purpose.  ``omit`` takes every command, event and channel out of the ground
+#: interface, so what is left is exactly the port machinery -- the generated port types, the
+#: hooked declarations, the input-port handler that forwards a command, an event decoder
+#: that reports through a port and nothing else, and a packet decoder that fires one.
+#: Reading it beside ``RefProxy/`` is the fastest way to see what the port hooks do.
+PORTED = "RefPorts"
+
+PORTED_CONFIG = Config(
+    component=PORTED,
+    namespace=PORTED,
+    kind=ComponentKind.ACTIVE,
+    naming=Naming.preset("instance"),
+    include_prefix=PORTED,
+    omit=("*",),
+    command_ports={
+        QualifiedName.parse("Ref.dpDemo.SelectColor"): True,
+        QualifiedName.parse("CdhCore.cmdDisp.CMD_NO_OP"): "pingRemote",
+    },
+    event_ports={QualifiedName.parse("CdhCore.cmdDisp.OpCodeDispatched"): True},
+    packet_ports={"RefPackets.SigGen1Info": True},
+)
+
+#: Every file the ported component owns.  No ``Telemetry.cpp``: nothing declares or hooks a
+#: channel, so there is no channelized telemetry to decode.
+PORTED_FILES = (
+    f"{PORTED}Types.fpp",
+    f"{PORTED}.fpp",
+    "CMakeLists.txt",
+    f"{PORTED}.hpp",
+    f"{PORTED}.cpp",
+    f"{PORTED}Commands.cpp",
+    f"{PORTED}Events.cpp",
+    f"{PORTED}Packets.cpp",
+)
 
 #: The configuration the goldens were generated with: every CLI default.
 GOLDEN_CONFIG = Config(
@@ -92,6 +129,55 @@ class TestGoldens:
             pytest.skip("goldens have not been generated yet")
         on_disk = {path.name for path in directory.iterdir() if path.is_file()}
         assert on_disk == set(GOLDEN_FILES)
+
+
+@pytest.fixture(scope="module")
+def ported_plan(ref: Dictionary) -> Plan:
+    """The Ref dictionary resolved against :data:`PORTED_CONFIG`."""
+    return resolve(ref, PORTED_CONFIG)
+
+
+@pytest.fixture(scope="module")
+def ported(ported_plan: Plan) -> dict[str, str]:
+    return {
+        f"{PORTED}Types.fpp": render_types(ported_plan),
+        f"{PORTED}.fpp": render_component(ported_plan),
+        "CMakeLists.txt": render_cmake(ported_plan),
+        **render_implementation(ported_plan).files(cpp_file_names(ported_plan)),
+    }
+
+
+class TestPortedGoldens:
+    """The hooked-port tree, pinned the same way and for the same reason."""
+
+    @pytest.mark.parametrize("name", PORTED_FILES)
+    def test_matches(self, ported: dict[str, str], name: str) -> None:
+        assert_matches_golden(ported[name], f"{PORTED}/{name}")
+
+    def test_the_file_set_is_exactly_the_golden_set(
+        self, ported: dict[str, str]
+    ) -> None:
+        assert set(ported) == set(PORTED_FILES)
+
+    def test_no_golden_is_orphaned(self) -> None:
+        directory = GOLDENS / PORTED
+        if not directory.is_dir():
+            pytest.skip("goldens have not been generated yet")
+        on_disk = {path.name for path in directory.iterdir() if path.is_file()}
+        assert on_disk == set(PORTED_FILES)
+
+    def test_declares_no_ground_interface_of_its_own(
+        self, ported_plan: Plan, ported: dict[str, str]
+    ) -> None:
+        # The point of the configuration: every command, event and channel is omitted, so
+        # the target deployment's ground dictionary gains nothing from this component
+        # beyond its own diagnostics.
+        assert not ported_plan.declared_commands
+        assert not ported_plan.declared_events
+        assert not ported_plan.declared_channels
+        model = ported[f"{PORTED}.fpp"]
+        assert "async command " not in model
+        assert len(ported_plan.ports) == 4
 
 
 def _declarations(model: str, keyword: str) -> int:

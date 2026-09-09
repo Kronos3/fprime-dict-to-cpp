@@ -53,20 +53,34 @@ def _preamble(writer: FppWriter, plan: Plan) -> None:
 
 def _component_annotation(plan: Plan) -> str:
     counts = (
-        f"{len(plan.commands)} commands, {len(plan.events)} events, "
-        f"{len(plan.channels)} telemetry channels"
+        f"{len(plan.declared_commands)} commands, {len(plan.declared_events)} events, "
+        f"{len(plan.declared_channels)} telemetry channels"
     )
     lines = [
         f"Proxies the {plan.dictionary.metadata.deployment_name} dictionary "
         f"({counts}).",
         "",
-        "Decodes Fw.Com packets received from the remote deployment into this "
-        "component's own events and telemetry, and serializes each of its commands "
-        "into an outgoing Fw.Com command packet.",
+        (
+            "Decodes Fw.Com packets received from the remote deployment into this "
+            "component's own events and telemetry, and serializes each of its commands "
+            "into an outgoing Fw.Com command packet."
+            if plan.declared_commands or plan.declared_events or plan.declared_channels
+            # Every member is omitted, so nothing of the remote's interface is declared
+            # here and the ports below are the whole of what this component does.
+            else "Declares none of the remote's interface itself: every command, event "
+            "and telemetry channel is omitted, so the hooked ports below are what this "
+            "component is for."
+        ),
     ]
     if plan.has_packets:
         lines.append(
             f"Also unpacks {len(plan.packets)} packetized-telemetry packet layouts."
+        )
+    if plan.ports:
+        lines.append(
+            f"{len(plan.input_ports)} of the remote's commands and "
+            f"{len(plan.output_ports)} of its reports are also hooked onto ports of "
+            f"this component, for flight software rather than for the ground."
         )
     return "\n".join(lines)
 
@@ -108,6 +122,8 @@ def _ports(writer: FppWriter, plan: Plan) -> None:
         )
         writer.line("sync input port run: Svc.Sched")
 
+    _hooked_ports(writer, plan)
+
     writer.banner("Special ports")
     for annotation, declaration in (
         ("Command receive port", "command recv port cmdIn"),
@@ -120,6 +136,29 @@ def _ports(writer: FppWriter, plan: Plan) -> None:
     ):
         writer.annotate(annotation)
         writer.line(declaration)
+        writer.blank()
+
+
+def _hooked_ports(writer: FppWriter, plan: Plan) -> None:
+    """The ports the configuration hooked onto individual members.
+
+    An input port for a command is ``async`` wherever the component has a queue, for the
+    same reason a forwarded command is: serializing a packet is quick, but a caller should
+    not be made to wait on it, and a passive component has no queue to defer onto.
+    """
+    ports = plan.ports
+    if not ports:
+        return
+    writer.banner("Hooked ports")
+    writer.comment(
+        "Ports onto individual members of the remote's interface, asked for by name in\n"
+        "this component's configuration.  Their port types are in "
+        f"{plan.config.component}Types.fpp."
+    )
+    writer.blank()
+    for port in ports:
+        writer.annotate(f"{port.annotation}\n[{port.origin}]")
+        writer.line(f"{port.declaration} {escape(port.name)}: {escape(port.type_name)}")
         writer.blank()
 
 
@@ -140,10 +179,10 @@ def _params(plan: Plan, params: tuple[FormalParam, ...]) -> list[str]:
 
 
 def _commands(writer: FppWriter, plan: Plan) -> None:
-    if not plan.commands:
+    if not plan.declared_commands:
         return
     writer.banner("Commands")
-    for command in plan.commands:
+    for command in plan.declared_commands:
         _command(writer, plan, command)
         writer.blank()
 
@@ -165,10 +204,10 @@ def _command(writer: FppWriter, plan: Plan, command: CommandPlan) -> None:
 
 
 def _events(writer: FppWriter, plan: Plan) -> None:
-    if not plan.events:
+    if not plan.declared_events:
         return
     writer.banner("Events")
-    for event in plan.events:
+    for event in plan.declared_events:
         _event(writer, plan, event)
         writer.blank()
 
@@ -194,10 +233,10 @@ def _event(writer: FppWriter, plan: Plan, event: EventPlan) -> None:
 
 
 def _telemetry(writer: FppWriter, plan: Plan) -> None:
-    if not plan.channels:
+    if not plan.declared_channels:
         return
     writer.banner("Telemetry")
-    for channel in plan.channels:
+    for channel in plan.declared_channels:
         _channel(writer, plan, channel)
         writer.blank()
 
@@ -248,6 +287,10 @@ def _diagnostics(writer: FppWriter, plan: Plan) -> None:
             "ProxyPacketsIgnored",
             "Packets whose descriptor or identifier this proxy does not mirror",
         ),
+        (
+            "ProxyForwardErrors",
+            "Command packets a hooked input port could not send",
+        ),
     ):
         if name not in channel_ids:
             continue
@@ -294,6 +337,30 @@ def _diagnostics(writer: FppWriter, plan: Plan) -> None:
                 "A well-formed packet named something this proxy does not mirror.\n"
                 "Expected for packet kinds outside this proxy's scope, such as files\n"
                 "and data products."
+            ),
+        )
+        writer.blank()
+
+    if "ProxyForwardError" in event_ids:
+        writer.declaration(
+            "event ProxyForwardError",
+            [
+                # Not "opcode": FPP reserves that word, and an escaped $opcode would
+                # reach the generated C++ as a formal called opcode anyway.
+                "remoteOpcode: U32 @< The remote opcode that was being forwarded",
+                "status: I32 @< The Fw::SerializeStatus, or OK if comOut is unconnected",
+            ],
+            [
+                "severity warning high",
+                f"id {event_ids['ProxyForwardError']}",
+                'format "Could not forward remote opcode {} to the remote deployment: '
+                'status {}"',
+                "throttle 10",
+            ],
+            annotation=(
+                "A hooked input port could not send its command packet.\n"
+                "A forwarded ground command reports this as a command response instead;\n"
+                "a port has no caller to answer, which is why this exists."
             ),
         )
         writer.blank()

@@ -1,0 +1,226 @@
+"""Writing a component to disk, and the CLI that drives it."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from fprime_dict_to_cpp.cli import build_parser, main
+from fprime_dict_to_cpp.generate import generate
+from fprime_dict_to_cpp.model import ComponentKind
+from fprime_dict_to_cpp.naming import Naming
+from fprime_dict_to_cpp.plan import Config
+
+EXPECTED = {
+    "CMakeLists.txt",
+    "RefProxy.cpp",
+    "RefProxy.fpp",
+    "RefProxy.hpp",
+    "RefProxyCommands.cpp",
+    "RefProxyEvents.cpp",
+    "RefProxyPackets.cpp",
+    "RefProxyTelemetry.cpp",
+    "RefProxyTypes.fpp",
+}
+
+
+@pytest.fixture
+def written(tmp_path: Path, ref_path: Path, config: Config):  # type: ignore[no-untyped-def]
+    """A component generated into a temporary directory."""
+    return generate(ref_path, tmp_path / "RefProxy", config)
+
+
+class TestGenerate:
+    def test_writes_the_expected_files(self, written) -> None:  # type: ignore[no-untyped-def]
+        assert {path.name for path in written.files} == EXPECTED
+
+    def test_reports_only_the_string_limit_notes_for_ref(self, written) -> None:  # type: ignore[no-untyped-def]
+        # Ref needs no re-qualification and reuses no id; the only notes are about
+        # declared string sizes that F Prime's defaults clamp.
+        assert all("STRING_MAX_SIZE" in w for w in written.warnings)
+
+    def test_regeneration_leaves_every_file_alone(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        # An unchanged mtime is what stops a no-op regeneration cascading a rebuild
+        # through everything downstream of the component.
+        output = tmp_path / "RefProxy"
+        first = generate(ref_path, output, config)
+        assert first.unchanged == []
+        second = generate(ref_path, output, config)
+        assert second.written == []
+        assert {p.name for p in second.unchanged} == EXPECTED
+
+    def test_changing_the_configuration_rewrites(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        from dataclasses import replace
+
+        output = tmp_path / "RefProxy"
+        generate(ref_path, output, config)
+        again = generate(
+            ref_path, output, replace(config, naming=Naming.preset("qualified"))
+        )
+        assert again.written
+
+    def test_creates_the_output_directory(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        output = tmp_path / "deep" / "nested" / "RefProxy"
+        generate(ref_path, output, config)
+        assert output.is_dir()
+
+    def test_cross_check_reports_agreement_silently(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        result = generate(ref_path, tmp_path / "out", config, cross_check=True)
+        disagreements = [w for w in result.warnings if "fprime-gds" in w]
+        assert all("not installed" in w for w in disagreements)
+
+
+class TestCMakeLists:
+    def test_lists_exactly_the_files_that_were_written(self, written) -> None:  # type: ignore[no-untyped-def]
+        text = (written.directory / "CMakeLists.txt").read_text()
+        for name in EXPECTED - {"CMakeLists.txt"}:
+            assert name in text, name
+
+    def test_uses_the_current_register_fprime_module_keywords(self, written) -> None:  # type: ignore[no-untyped-def]
+        text = (written.directory / "CMakeLists.txt").read_text()
+        assert "register_fprime_module(" in text
+        for keyword in ("AUTOCODER_INPUTS", "SOURCES", "HEADERS"):
+            assert f"  {keyword}\n" in text
+
+    def test_lists_both_fpp_files_as_autocoder_inputs(self, written) -> None:  # type: ignore[no-untyped-def]
+        text = (written.directory / "CMakeLists.txt").read_text()
+        inputs = text.split("AUTOCODER_INPUTS")[1].split("SOURCES")[0]
+        assert "RefProxyTypes.fpp" in inputs
+        assert "RefProxy.fpp" in inputs
+
+    def test_does_not_restate_dependencies(self, written) -> None:  # type: ignore[no-untyped-def]
+        # F Prime derives them from the FPP model; naming them again is how a generated
+        # file goes stale.
+        text = (written.directory / "CMakeLists.txt").read_text()
+        assert "DEPENDS" not in text
+
+
+class TestCli:
+    def test_dry_run_writes_nothing(
+        self, tmp_path: Path, ref_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        output = tmp_path / "RefProxy"
+        assert main([str(ref_path), "-o", str(output), "--dry-run"]) == 0
+        assert not output.exists()
+        assert "would write into" in capsys.readouterr().out
+
+    def test_generates_with_defaults(
+        self, tmp_path: Path, ref_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        output = tmp_path / "RefProxy"
+        assert main([str(ref_path), "-o", str(output)]) == 0
+        assert {p.name for p in output.iterdir()} == EXPECTED
+        assert "116 commands" in capsys.readouterr().out
+
+    def test_component_name_defaults_to_the_deployment(
+        self, tmp_path: Path, ref_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        main([str(ref_path), "-o", str(tmp_path / "out"), "--dry-run"])
+        assert "RefProxy" in capsys.readouterr().out
+
+    def test_kind_and_naming_reach_the_output(
+        self, tmp_path: Path, ref_path: Path
+    ) -> None:
+        output = tmp_path / "P"
+        assert (
+            main(
+                [
+                    str(ref_path),
+                    "-o",
+                    str(output),
+                    "-c",
+                    "P",
+                    "--kind",
+                    "passive",
+                    "--naming",
+                    "qualified",
+                ]
+            )
+            == 0
+        )
+        model = (output / "P.fpp").read_text()
+        assert "passive component P {" in model
+        assert "Ref_dpDemo_SelectColor" in model
+
+    def test_naming_knobs_override_the_preset(
+        self, tmp_path: Path, ref_path: Path
+    ) -> None:
+        output = tmp_path / "P"
+        main(
+            [
+                str(ref_path),
+                "-o",
+                str(output),
+                "-c",
+                "P",
+                "--naming",
+                "instance",
+                "--name-qualification",
+                "full",
+            ]
+        )
+        assert "Ref_dpDemo_SelectColor" in (output / "P.fpp").read_text()
+
+    def test_no_diagnostics_and_no_packetized(
+        self, tmp_path: Path, ref_path: Path
+    ) -> None:
+        output = tmp_path / "P"
+        main(
+            [
+                str(ref_path),
+                "-o",
+                str(output),
+                "-c",
+                "P",
+                "--no-diagnostics",
+                "--no-packetized",
+            ]
+        )
+        model = (output / "P.fpp").read_text()
+        assert "ProxyDecodeError" not in model
+        assert not (output / "PPackets.cpp").exists()
+
+    def test_type_prefix_reaches_the_types(
+        self, tmp_path: Path, ref_path: Path
+    ) -> None:
+        output = tmp_path / "P"
+        main([str(ref_path), "-o", str(output), "-c", "P", "--type-prefix", "Rp_"])
+        assert "Rp_Ref_DpDemo_ColorEnum" in (output / "PTypes.fpp").read_text()
+
+    def test_missing_dictionary_is_an_error(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        assert main([str(tmp_path / "absent.json")]) == 2
+        assert "error:" in capsys.readouterr().err
+
+    def test_malformed_dictionary_is_an_error(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        path = tmp_path / "bad.json"
+        path.write_text("{}")
+        assert main([str(path)]) == 2
+        assert "metadata" in capsys.readouterr().err
+
+    def test_quiet_suppresses_the_summary(
+        self, tmp_path: Path, ref_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        main([str(ref_path), "-o", str(tmp_path / "out"), "-q"])
+        assert capsys.readouterr().out == ""
+
+    def test_parser_exposes_every_kind_and_preset(self) -> None:
+        from fprime_dict_to_cpp.naming import PRESETS
+
+        text = build_parser().format_help()
+        for kind in ComponentKind:
+            assert kind.value in text
+        for preset in PRESETS:
+            assert preset in text

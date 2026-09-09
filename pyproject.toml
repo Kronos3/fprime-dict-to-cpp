@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm[toml]>=6.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fprime-dict-to-cpp"
+dynamic = ["version"]
+description = "Generate an F Prime component that proxies a remote deployment's dictionary"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = [
+    "fprime",
+    "codegen",
+    "dictionary",
+    "c++",
+    "fpp",
+    "embedded",
+    "nasa",
+    "flight",
+    "software",
+]
+authors = [{ name = "Andrei Tumbar" }]
+
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Code Generators",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+dependencies = ["fprime-cpp-codegen"]
+
+[project.optional-dependencies]
+# fprime-gds is used only to cross-check our own dictionary parse; the generator
+# does not need it at runtime.
+gds = ["fprime-gds>=4.3"]
+dev = ["pytest>=7", "mypy>=1.11", "black>=24", "fprime-gds>=4.3"]
+
+[project.scripts]
+fprime-dict-to-cpp = "fprime_dict_to_cpp.cli:main"
+
+[project.urls]
+Homepage = "https://fprime.jpl.nasa.gov"
+Documentation = "https://nasa.github.io/fprime/"
+
+[tool.black]
+target-version = ["py310"]
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fprime_dict_to_cpp = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs a real FPP toolchain and a C++ compiler; skips itself without one",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/fprime_dict_to_cpp"]
+
+# fprime-gds ships no type information, and it is an optional cross-check anyway.
+[[tool.mypy.overrides]]
+module = "fprime_gds.*"
+ignore_missing_imports = true

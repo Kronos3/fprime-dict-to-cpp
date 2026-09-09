@@ -123,6 +123,26 @@ class Naming:
             ) from None
         return cls(qualification, style)
 
+    @classmethod
+    def resolve(
+        cls,
+        preset: str,
+        *,
+        qualification: Qualification | None = None,
+        style: Style | None = None,
+    ) -> Naming:
+        """A configuration from a :data:`PRESETS` key, with either knob overridden.
+
+        The preset is the coarse answer and the two knobs are the fine ones, which is how
+        both the command line and a configuration file state them: ``--naming member``
+        picks a shape, ``--name-style source-case`` adjusts it.
+        """
+        base = cls.preset(preset)
+        return cls(
+            qualification=qualification or base.qualification,
+            style=style or base.style,
+        )
+
     def apply(
         self, name: QualifiedName, *, qualification: Qualification | None = None
     ) -> str:

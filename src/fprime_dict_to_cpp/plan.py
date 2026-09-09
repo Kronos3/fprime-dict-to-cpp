@@ -16,8 +16,9 @@ component that builds and then silently talks to nobody.
 from __future__ import annotations
 
 import difflib
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any, Generic, Protocol, TypeVar
 
 from .model import (
     Channel,
@@ -29,6 +30,7 @@ from .model import (
     QualifiedName,
     TelemetryPacket,
     TypeKind,
+    TypeRef,
 )
 from .naming import Naming, check_member_identifier, mangle_all
 from .spelling import Spelling, TypeNamer, check_type_identifier
@@ -43,8 +45,11 @@ __all__ = [
     "CommandPlan",
     "Config",
     "EventPlan",
+    "Member",
+    "MemberPlan",
     "PacketPlan",
     "Plan",
+    "StringLimit",
     "resolve",
 ]
 
@@ -86,7 +91,16 @@ RESERVED_MEMBER_NAMES = (
     *DIAGNOSTIC_EVENTS,
 )
 
-#: F Prime's default capacity for a string in each context, and the constant that sets it.
+
+@dataclass(frozen=True)
+class StringLimit:
+    """F Prime's default capacity for a string in one context, and what sets it."""
+
+    constant: str
+    size: int
+
+
+#: F Prime's default capacity for a string in each context.
 #:
 #: ``string size N`` does not produce an N-character C++ type at a component's API
 #: boundary.  A command argument arrives as ``Fw::CmdStringArg``, an event argument and a
@@ -95,9 +109,9 @@ RESERVED_MEMBER_NAMES = (
 #: is why this is a fidelity note rather than a defect, but it does mean the two
 #: deployments have to agree on the limit.
 STRING_LIMITS = {
-    "command argument": ("FW_CMD_STRING_MAX_SIZE", 40),
-    "event argument": ("FW_LOG_STRING_MAX_SIZE", 200),
-    "telemetry channel": ("FW_TLM_STRING_MAX_SIZE", 40),
+    "command argument": StringLimit("FW_CMD_STRING_MAX_SIZE", 40),
+    "event argument": StringLimit("FW_LOG_STRING_MAX_SIZE", 200),
+    "telemetry channel": StringLimit("FW_TLM_STRING_MAX_SIZE", 40),
 }
 
 
@@ -173,34 +187,73 @@ class Config:
         return f"{self.include_prefix}/{name}" if self.include_prefix else name
 
 
-@dataclass(frozen=True)
-class CommandPlan:
-    """One forwarded command."""
+class Member(Protocol):
+    """What every mirrored member has, whichever kind it is."""
 
-    source: Command
+    @property
+    def name(self) -> QualifiedName:
+        """Its full dictionary name, instance path and all."""
+
+
+Source = TypeVar("Source", bound=Member)
+
+
+@dataclass(frozen=True)
+class MemberPlan(Generic[Source]):
+    """One mirrored dictionary member: what the proxy calls it, and its two ids.
+
+    Every kind is planned the same way and carries the same three things, so they share
+    this.  What differs is only where the remote's absolute value lives on the source --
+    a command is known by its opcode and everything else by its id -- which is why
+    :attr:`remote_id` is the one thing each kind says for itself.
+    """
+
+    source: Source
     identifier: str
     """The proxy's member name for it."""
 
-    local_opcode: int
-    """The opcode in the proxy's own FPP, dense from zero."""
+    local_id: int
+    """Its id in the proxy's own FPP, dense from zero."""
+
+    @property
+    def remote_id(self) -> int:
+        """The absolute id or opcode the remote knows it by, as it goes on the wire.
+
+        The one thing a kind has to say for itself, since only it knows where its source
+        keeps the value.
+        """
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class CommandPlan(MemberPlan[Command]):
+    """One forwarded command, whose ids are called opcodes wherever a command is.
+
+    Both spellings reach the same two values, so the emitters can say ``remote_opcode``
+    where that is what it is.
+    """
+
+    @property
+    def remote_id(self) -> int:
+        return self.source.opcode
+
+    @property
+    def local_opcode(self) -> int:
+        """The opcode in the proxy's own FPP, dense from zero."""
+        return self.local_id
 
     @property
     def remote_opcode(self) -> int:
         """The absolute opcode to put on the wire, as the remote knows it."""
-        return self.source.opcode
+        return self.remote_id
 
 
 @dataclass(frozen=True)
-class EventPlan:
+class EventPlan(MemberPlan[Event]):
     """One mirrored event."""
-
-    source: Event
-    identifier: str
-    local_id: int
 
     @property
     def remote_id(self) -> int:
-        """The absolute event id to match an inbound packet against."""
         return self.source.id
 
     @property
@@ -210,16 +263,11 @@ class EventPlan:
 
 
 @dataclass(frozen=True)
-class ChannelPlan:
+class ChannelPlan(MemberPlan[Channel]):
     """One mirrored telemetry channel."""
-
-    source: Channel
-    identifier: str
-    local_id: int
 
     @property
     def remote_id(self) -> int:
-        """The absolute channel id to match an inbound packet against."""
         return self.source.id
 
     @property
@@ -264,18 +312,18 @@ class Plan:
     @property
     def diagnostic_channel_ids(self) -> dict[str, int]:
         """Local telemetry ids for the proxy's own channels, after the mirrored ones."""
-        if not self.config.diagnostics:
-            return {}
-        start = len(self.channels)
-        return {name: start + index for index, name in enumerate(DIAGNOSTIC_CHANNELS)}
+        return self._diagnostics(DIAGNOSTIC_CHANNELS, after=len(self.channels))
 
     @property
     def diagnostic_event_ids(self) -> dict[str, int]:
         """Local event ids for the proxy's own events, after the mirrored ones."""
+        return self._diagnostics(DIAGNOSTIC_EVENTS, after=len(self.events))
+
+    def _diagnostics(self, names: Sequence[str], *, after: int) -> dict[str, int]:
+        """``names`` numbered from ``after``, or nothing at all if they are turned off."""
         if not self.config.diagnostics:
             return {}
-        start = len(self.events)
-        return {name: start + index for index, name in enumerate(DIAGNOSTIC_EVENTS)}
+        return {name: after + index for index, name in enumerate(names)}
 
 
 def resolve(dictionary: Dictionary, config: Config) -> Plan:
@@ -296,9 +344,9 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
     spelling = Spelling(dictionary, namer)
     _check_type_name_overrides(dictionary, config, spelling, warnings)
 
-    commands = _plan_commands(dictionary, config, warnings)
-    events = _plan_events(dictionary, config, warnings)
-    channels = _plan_channels(dictionary, config, warnings)
+    commands = _plan_members(_COMMANDS, dictionary, config, warnings)
+    events = _plan_members(_EVENTS, dictionary, config, warnings)
+    channels = _plan_members(_CHANNELS, dictionary, config, warnings)
     packets = _plan_packets(dictionary, channels, warnings) if config.packetized else ()
     _check_string_sizes(dictionary, warnings)
 
@@ -319,6 +367,44 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
 # ---------------------------------------------------------------------------
 
 
+Target = TypeVar("Target")
+
+
+def _checked_overrides(
+    overrides: Mapping[Target, str],
+    *,
+    label: str,
+    noun: str,
+    known: Collection[Target],
+    absent: str,
+    check_identifier: Callable[[str, str], None],
+) -> Iterator[tuple[Target, str, str]]:
+    """Every override in ``overrides``, once what both tables mean is known to hold.
+
+    Which is: that the identifier could name what it is naming, that the dictionary still
+    has the thing being renamed -- the usual reason it does not is a dictionary that has
+    moved on, so a near miss is suggested -- and that no two entries ask for one name.
+    Whatever else a particular table means, its caller adds to what is yielded:
+    ``(target, identifier, context)``, ``context`` being what a complaint opens with.
+    """
+    chosen: dict[str, Target] = {}
+    for target, identifier in sorted(overrides.items(), key=lambda item: str(item[0])):
+        context = f"{label} for {target}"
+        check_identifier(identifier, context)
+        if target not in known:
+            raise NamingError(
+                f"{context}: {absent}"
+                f"{_suggestion(str(target), [str(k) for k in known])}"
+            )
+        first = chosen.setdefault(identifier.casefold(), target)
+        if first != target:
+            raise NamingError(
+                f"{context}: {identifier!r} is already the name chosen for {first}; "
+                f"two {noun}s cannot share one name"
+            )
+        yield target, identifier, context
+
+
 def _check_name_overrides(dictionary: Dictionary, config: Config) -> None:
     """Check every member name override against the dictionary and against itself.
 
@@ -333,26 +419,19 @@ def _check_name_overrides(dictionary: Dictionary, config: Config) -> None:
         *(event.name for event in dictionary.events),
         *(channel.name for channel in dictionary.channels),
     }
-    reserved = {name.casefold(): name for name in RESERVED_MEMBER_NAMES}
-    chosen: dict[str, QualifiedName] = {}
-    for name, identifier in sorted(config.name_overrides.items(), key=_by_name):
-        context = f"name override for {name}"
-        check_member_identifier(identifier, context)
-        if name not in known:
-            raise NamingError(
-                f"{context}: matches no command, event or telemetry channel in the "
-                f"dictionary{_suggestion(str(name), [str(k) for k in known])}"
-            )
+    reserved = {name.casefold() for name in RESERVED_MEMBER_NAMES}
+    for _, identifier, context in _checked_overrides(
+        config.name_overrides,
+        label="name override",
+        noun="member",
+        known=known,
+        absent="matches no command, event or telemetry channel in the dictionary",
+        check_identifier=check_member_identifier,
+    ):
         if identifier.casefold() in reserved:
             raise NamingError(
                 f"{context}: {identifier!r} is one of the names the proxy declares "
                 "itself, so a member cannot take it"
-            )
-        first = chosen.setdefault(identifier.casefold(), name)
-        if first != name:
-            raise NamingError(
-                f"{context}: {identifier!r} is already the name chosen for {first}; "
-                "two members cannot share one name"
             )
 
 
@@ -367,21 +446,14 @@ def _check_type_name_overrides(
         return
     known = {definition.qualified_name for definition in dictionary.type_defs}
     emitted = {definition.qualified_name for definition in spelling.type_defs()}
-    chosen: dict[str, str] = {}
-    for qualified, identifier in sorted(config.type_name_overrides.items()):
-        context = f"type name override for {qualified}"
-        check_type_identifier(identifier, context)
-        if qualified not in known:
-            raise NamingError(
-                f"{context}: matches no type in the dictionary"
-                f"{_suggestion(qualified, known)}"
-            )
-        first = chosen.setdefault(identifier.casefold(), qualified)
-        if first != qualified:
-            raise NamingError(
-                f"{context}: {identifier!r} is already the name chosen for {first}; "
-                "two types cannot share one name"
-            )
+    for qualified, identifier, context in _checked_overrides(
+        config.type_name_overrides,
+        label="type name override",
+        noun="type",
+        known=known,
+        absent="matches no type in the dictionary",
+        check_identifier=check_type_identifier,
+    ):
         clash = [
             other
             for other in sorted(emitted)
@@ -397,10 +469,6 @@ def _check_type_name_overrides(
                 f"{context}: no mirrored member reaches that type, so the override has "
                 "nothing to rename"
             )
-
-
-def _by_name(item: tuple[QualifiedName, str]) -> tuple[str, ...]:
-    return item[0].parts
 
 
 def _suggestion(wanted: str, known: Iterable[str]) -> str:
@@ -434,58 +502,89 @@ def _mangle(
     return assigned
 
 
-def _plan_commands(
-    dictionary: Dictionary, config: Config, warnings: list[str]
-) -> tuple[CommandPlan, ...]:
-    ordered = sorted(dictionary.commands, key=lambda c: (c.opcode, str(c.name)))
-    identifiers = _mangle([c.name for c in ordered], config, "command", warnings)
-    duplicates = _duplicate_ids([c.opcode for c in ordered])
-    if duplicates:
-        warnings.append(
-            f"the dictionary reuses command opcode(s) {sorted(duplicates)}; the proxy "
-            "will forward the same opcode for each, which is what the remote does too"
-        )
-    return tuple(
-        CommandPlan(
-            source=command, identifier=identifiers[command.name], local_opcode=index
-        )
-        for index, command in enumerate(ordered)
+Planned = TypeVar("Planned", bound=MemberPlan[Any])
+
+
+@dataclass(frozen=True)
+class _Kind(Generic[Source, Planned]):
+    """One member kind, as far as planning it has to tell it from the other two.
+
+    Commands, events and channels are planned identically -- ordered by the remote's own
+    value, mangled together, numbered densely from zero, and checked for a reused value --
+    so :func:`_plan_members` does all three, and this is everything it needs to know
+    about which one it is doing.
+    """
+
+    noun: str
+    """What one is called, e.g. ``"command"``."""
+
+    identity: str
+    """What the remote's value for one is called, e.g. ``"command opcode"``."""
+
+    consequence: str
+    """What two of them sharing one means, said after "the dictionary reuses ...;"."""
+
+    plan: type[Planned]
+    members: Callable[[Dictionary], Sequence[Source]]
+    remote: Callable[[Source], int]
+
+
+_COMMANDS: _Kind[Command, CommandPlan] = _Kind(
+    noun="command",
+    identity="command opcode",
+    consequence="the proxy will forward the same opcode for each, which is what the "
+    "remote does too",
+    plan=CommandPlan,
+    members=lambda dictionary: dictionary.commands,
+    remote=lambda command: command.opcode,
+)
+
+_EVENTS: _Kind[Event, EventPlan] = _Kind(
+    noun="event",
+    identity="event id",
+    consequence="an inbound packet carrying one is ambiguous, and the proxy will emit "
+    "only the first match",
+    plan=EventPlan,
+    members=lambda dictionary: dictionary.events,
+    remote=lambda event: event.id,
+)
+
+_CHANNELS: _Kind[Channel, ChannelPlan] = _Kind(
+    noun="channel",
+    identity="channel id",
+    consequence="an inbound packet carrying one is ambiguous, and the proxy will write "
+    "only the first",
+    plan=ChannelPlan,
+    members=lambda dictionary: dictionary.channels,
+    remote=lambda channel: channel.id,
+)
+
+
+def _plan_members(
+    kind: _Kind[Source, Planned],
+    dictionary: Dictionary,
+    config: Config,
+    warnings: list[str],
+) -> tuple[Planned, ...]:
+    """Name and number one kind of member.
+
+    Ordering is by the remote's value and then by the name, so that a dictionary's local
+    ids do not depend on the order its sections happened to be written in.
+    """
+    ordered = sorted(
+        kind.members(dictionary),
+        key=lambda member: (kind.remote(member), str(member.name)),
     )
-
-
-def _plan_events(
-    dictionary: Dictionary, config: Config, warnings: list[str]
-) -> tuple[EventPlan, ...]:
-    ordered = sorted(dictionary.events, key=lambda e: (e.id, str(e.name)))
-    identifiers = _mangle([e.name for e in ordered], config, "event", warnings)
-    duplicates = _duplicate_ids([e.id for e in ordered])
-    if duplicates:
+    identifiers = _mangle([m.name for m in ordered], config, kind.noun, warnings)
+    reused = _duplicates(kind.remote(member) for member in ordered)
+    if reused:
         warnings.append(
-            f"the dictionary reuses event id(s) {sorted(duplicates)}; an inbound packet "
-            "carrying one is ambiguous, and the proxy will emit only the first match"
+            f"the dictionary reuses {kind.identity}(s) {sorted(reused)}; "
+            f"{kind.consequence}"
         )
     return tuple(
-        EventPlan(source=event, identifier=identifiers[event.name], local_id=index)
-        for index, event in enumerate(ordered)
-    )
-
-
-def _plan_channels(
-    dictionary: Dictionary, config: Config, warnings: list[str]
-) -> tuple[ChannelPlan, ...]:
-    ordered = sorted(dictionary.channels, key=lambda c: (c.id, str(c.name)))
-    identifiers = _mangle([c.name for c in ordered], config, "channel", warnings)
-    duplicates = _duplicate_ids([c.id for c in ordered])
-    if duplicates:
-        warnings.append(
-            f"the dictionary reuses channel id(s) {sorted(duplicates)}; an inbound "
-            "packet carrying one is ambiguous, and the proxy will write only the first"
-        )
-    return tuple(
-        ChannelPlan(
-            source=channel, identifier=identifiers[channel.name], local_id=index
-        )
-        for index, channel in enumerate(ordered)
+        kind.plan(source=member, identifier=identifiers[member.name], local_id=index)
+        for index, member in enumerate(ordered)
     )
 
 
@@ -518,7 +617,7 @@ def _plan_packets(
                 )
                 continue
             packets.append(PacketPlan(source=packet, channels=tuple(members)))
-    ids = _duplicate_ids([p.id for p in packets])
+    ids = _duplicates(p.id for p in packets)
     if ids:
         warnings.append(
             f"telemetry packet id(s) {sorted(ids)} are declared more than once; only "
@@ -535,45 +634,51 @@ def _check_string_sizes(dictionary: Dictionary, warnings: list[str]) -> None:
     that the two deployments are configured alike, so the numbers are worth stating.
     """
     oversized: dict[str, list[tuple[str, int]]] = {}
-
-    def note(context: str, where: str, size: int | None) -> None:
-        if size is None:
-            return
-        _, limit = STRING_LIMITS[context]
-        if size > limit:
+    for context, where, size in _declared_strings(dictionary):
+        if size > STRING_LIMITS[context].size:
             oversized.setdefault(context, []).append((where, size))
 
-    for command in dictionary.commands:
-        for param in command.params:
-            if param.type.kind is TypeKind.STRING:
-                note(
-                    "command argument", f"{command.name}.{param.name}", param.type.size
-                )
-    for event in dictionary.events:
-        for param in event.params:
-            if param.type.kind is TypeKind.STRING:
-                note("event argument", f"{event.name}.{param.name}", param.type.size)
-    for channel in dictionary.channels:
-        if channel.type.kind is TypeKind.STRING:
-            note("telemetry channel", str(channel.name), channel.type.size)
-
     for context, entries in sorted(oversized.items()):
-        constant, limit = STRING_LIMITS[context]
+        limit = STRING_LIMITS[context]
         largest = max(size for _, size in entries)
         example = min(entries, key=lambda entry: entry[0])[0]
         warnings.append(
             f"{len(entries)} {context}(s) declare a string longer than F Prime's default "
-            f"{constant} of {limit} (largest is {largest}, e.g. {example}); such a value "
-            f"is truncated to the limit on both sides, so the remote and this deployment "
-            f"must configure {constant} identically"
+            f"{limit.constant} of {limit.size} (largest is {largest}, e.g. {example}); "
+            f"such a value is truncated to the limit on both sides, so the remote and "
+            f"this deployment must configure {limit.constant} identically"
         )
 
 
-def _duplicate_ids(ids: list[int]) -> set[int]:
+def _declared_strings(dictionary: Dictionary) -> Iterator[tuple[str, str, int]]:
+    """Every string a member declares a capacity for: its context, where, and how big.
+
+    The contexts are :data:`STRING_LIMITS`' keys, since a declared size only means
+    anything against the limit for the place it was declared in.
+    """
+    for context, where, declared in _typed_members(dictionary):
+        if declared.kind is TypeKind.STRING and declared.size is not None:
+            yield context, where, declared.size
+
+
+def _typed_members(dictionary: Dictionary) -> Iterator[tuple[str, str, TypeRef]]:
+    """Every value a member carries, in the context that decides how it is serialized."""
+    for command in dictionary.commands:
+        for param in command.params:
+            yield "command argument", f"{command.name}.{param.name}", param.type
+    for event in dictionary.events:
+        for param in event.params:
+            yield "event argument", f"{event.name}.{param.name}", param.type
+    for channel in dictionary.channels:
+        yield "telemetry channel", str(channel.name), channel.type
+
+
+def _duplicates(values: Iterable[int]) -> set[int]:
+    """Every value that appears more than once."""
     seen: set[int] = set()
-    duplicates: set[int] = set()
-    for identifier in ids:
-        if identifier in seen:
-            duplicates.add(identifier)
-        seen.add(identifier)
-    return duplicates
+    repeated: set[int] = set()
+    for value in values:
+        if value in seen:
+            repeated.add(value)
+        seen.add(value)
+    return repeated

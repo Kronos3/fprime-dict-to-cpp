@@ -16,14 +16,14 @@ diff than against a prompt, which is exactly what the file it leaves behind is f
 
 from __future__ import annotations
 
-import argparse
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, TextIO
 
 from . import config_file, dictionary
 from .model import ComponentKind, Dictionary, DictionaryError
+from .options import Options
 
 __all__ = [
     "Aborted",
@@ -108,6 +108,12 @@ class Scaffold:
     dictionary: Dictionary
     """The parsed dictionary, so the caller does not read it twice."""
 
+    source: Path
+    """Where it was read from: ``options.dictionary``, as the settled answer it now is."""
+
+    options: Options
+    """The options with the answers in, which the run carries on with."""
+
     config: Path
     """The configuration file to iterate through from here."""
 
@@ -120,25 +126,26 @@ def config_path(output: Path, component: str) -> Path:
     return output / f"{component}.yaml"
 
 
-def scaffold(arguments: argparse.Namespace, prompter: Prompter) -> Scaffold:
-    """Ask the shaping questions, fill ``arguments`` in, and write the configuration.
+def scaffold(options: Options, prompter: Prompter) -> Scaffold:
+    """Ask the shaping questions, answer ``options`` with them, and write the file.
 
     The dictionary is parsed here rather than by the caller because the questions that
     follow depend on it, and because a path that will not load is worth re-asking about
     rather than exiting over.
     """
-    parsed = _ask_dictionary(arguments, prompter)
+    parsed, source = _ask_dictionary(options, prompter)
     deployment = parsed.metadata.deployment_identifier
 
     prompter.say(f"\na proxy for {parsed.metadata.deployment_name}")
-    component = prompter.text(
-        "component name", arguments.component or f"{deployment}Proxy"
+    component = prompter.text("component name", options.component_for(deployment))
+    output = prompter.path("output directory", options.output_for(component))
+    kind = ComponentKind(
+        prompter.choice(
+            "component kind", [k.value for k in ComponentKind], options.kind.value
+        )
     )
-    arguments.component = component
-    output = prompter.path("output directory", arguments.output or Path(component))
-    arguments.output = output
-    arguments.kind = prompter.choice(
-        "component kind", [k.value for k in ComponentKind], arguments.kind
+    answered = replace(
+        options, dictionary=source, component=component, output=output, kind=kind
     )
 
     path = config_path(output, component)
@@ -147,16 +154,28 @@ def scaffold(arguments: argparse.Namespace, prompter: Prompter) -> Scaffold:
             f"{path} already exists; iterate on it with\n"
             f"  fprime-dict-to-cpp --config {path}"
         )
-    if arguments.dry_run:
+    if options.dry_run:
         prompter.say(f"\nwould write the configuration {path}")
-        return Scaffold(dictionary=parsed, config=path, written=False)
+        return Scaffold(
+            dictionary=parsed,
+            source=source,
+            options=answered,
+            config=path,
+            written=False,
+        )
 
     output.mkdir(parents=True, exist_ok=True)
-    path.write_text(_skeleton(arguments, output, component), encoding="utf-8")
-    return Scaffold(dictionary=parsed, config=path, written=True)
+    path.write_text(_skeleton(answered, source, output, component), encoding="utf-8")
+    return Scaffold(
+        dictionary=parsed,
+        source=source,
+        options=answered,
+        config=path,
+        written=True,
+    )
 
 
-def _skeleton(arguments: argparse.Namespace, output: Path, component: str) -> str:
+def _skeleton(options: Options, source: Path, output: Path, component: str) -> str:
     """The configuration file's text: the answers, and everything else commented out.
 
     Anything else that is already in force is carried over as well, so that the file
@@ -165,23 +184,20 @@ def _skeleton(arguments: argparse.Namespace, output: Path, component: str) -> st
     would make the new file quietly disagree with the component beside it.
     """
     chosen: dict[str, Any] = {
-        "dictionary": _relative(arguments.dictionary, output),
+        "dictionary": _relative(source, output),
         "output": Path("."),
         "component": component,
-        "kind": arguments.kind,
+        "kind": options.kind,
     }
-    if arguments.name_overrides:
-        chosen["names"] = {
-            str(name): identifier
-            for name, identifier in arguments.name_overrides.items()
-        }
-    if arguments.type_name_overrides:
-        chosen["type-names"] = dict(arguments.type_name_overrides)
+    if options.name_overrides:
+        chosen["names"] = options.name_overrides
+    if options.type_name_overrides:
+        chosen["type-names"] = options.type_name_overrides
     return config_file.skeleton(
         chosen,
         defaults={
-            "include-prefix": arguments.include_prefix or output.name,
-            "namespace": arguments.namespace or component,
+            "include-prefix": options.include_prefix_for(output),
+            "namespace": options.namespace or component,
         },
         header=[
             f"{component}: how this proxy is generated.",
@@ -211,17 +227,18 @@ def _relative(path: Path, output: Path) -> Path:
         return path.resolve()
 
 
-def _ask_dictionary(arguments: argparse.Namespace, prompter: Prompter) -> Dictionary:
-    """Load the dictionary, re-asking for the path until one parses."""
-    path = arguments.dictionary
+def _ask_dictionary(options: Options, prompter: Prompter) -> tuple[Dictionary, Path]:
+    """Load the dictionary, re-asking for the path until one parses.
+
+    Hands back the path it settled on as well, since that is the answer the configuration
+    file has to record.
+    """
+    path = options.dictionary
     while True:
         if path is None:
             path = prompter.path("dictionary")
         try:
-            parsed = dictionary.load(path)
+            return dictionary.load(path), path
         except (DictionaryError, OSError) as error:
             prompter.say(f"  cannot read {path}: {error}")
             path = None
-            continue
-        arguments.dictionary = path
-        return parsed

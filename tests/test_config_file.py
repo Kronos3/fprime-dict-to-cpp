@@ -9,7 +9,8 @@ import pytest
 
 from fprime_dict_to_cpp import config_file
 from fprime_dict_to_cpp.cli import build_parser, main
-from fprime_dict_to_cpp.model import QualifiedName
+from fprime_dict_to_cpp.model import ComponentKind, QualifiedName
+from fprime_dict_to_cpp.naming import Qualification, Style
 
 
 @pytest.fixture
@@ -29,6 +30,9 @@ class TestLoad:
     def test_maps_each_key_to_its_argparse_destination(
         self, write  # type: ignore[no-untyped-def]
     ) -> None:
+        # A value that names one of an enumeration's constants arrives as the constant,
+        # since the field it feeds is typed that way and that is where the choices came
+        # from in the first place.
         path = write(
             "component: P\n"
             "namespace: Proxies\n"
@@ -45,10 +49,10 @@ class TestLoad:
         assert config_file.load(path) == {
             "component": "P",
             "namespace": "Proxies",
-            "kind": "passive",
+            "kind": ComponentKind.PASSIVE,
             "naming": "qualified",
-            "name_qualification": "full",
-            "name_style": "underscore",
+            "name_qualification": Qualification.FULL,
+            "name_style": Style.UNDERSCORE,
             "type_prefix": "Rp_",
             "include_prefix": "Ref/P",
             "cross_check": True,
@@ -68,16 +72,12 @@ class TestLoad:
     def test_the_positive_keys_stand_in_for_the_negative_flags(
         self, write  # type: ignore[no-untyped-def]
     ) -> None:
+        # ``--no-packetized`` clears the same destination the key sets, so the negation
+        # lives in the flag alone and nothing downstream has to undo one.
         path = write("packetized: false\ndiagnostics: false\n")
-        assert config_file.load(path) == {
-            "no_packetized": True,
-            "no_diagnostics": True,
-        }
+        assert config_file.load(path) == {"packetized": False, "diagnostics": False}
         path = write("packetized: true\ndiagnostics: true\n")
-        assert config_file.load(path) == {
-            "no_packetized": False,
-            "no_diagnostics": False,
-        }
+        assert config_file.load(path) == {"packetized": True, "diagnostics": True}
 
     def test_underscores_are_accepted_wherever_hyphens_are(
         self, write  # type: ignore[no-untyped-def]
@@ -354,14 +354,14 @@ class TestSkeleton:
             "dictionary": Path("../ref.json"),
             "output": Path("."),
             "component": "P",
-            "kind": "passive",
+            "kind": ComponentKind.PASSIVE,
             "type-prefix": "Rp_",
             "names": {"Ref.dpDemo.SelectColor": "SelectDemoColor"},
         }
         path = write(config_file.skeleton(chosen))
         loaded = config_file.load(path)
         assert loaded["component"] == "P"
-        assert loaded["kind"] == "passive"
+        assert loaded["kind"] == ComponentKind.PASSIVE
         assert loaded["type_prefix"] == "Rp_"
         assert loaded["output"] == path.parent
         assert loaded["dictionary"] == path.parent.parent / "ref.json"

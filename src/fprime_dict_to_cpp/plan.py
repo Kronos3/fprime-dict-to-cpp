@@ -15,6 +15,8 @@ component that builds and then silently talks to nobody.
 
 from __future__ import annotations
 
+import difflib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from .model import (
@@ -23,12 +25,13 @@ from .model import (
     ComponentKind,
     Dictionary,
     Event,
+    NamingError,
     QualifiedName,
     TelemetryPacket,
     TypeKind,
 )
-from .naming import Naming, mangle_all
-from .spelling import Spelling, TypeNamer
+from .naming import Naming, check_member_identifier, mangle_all
+from .spelling import Spelling, TypeNamer, check_type_identifier
 
 __all__ = [
     "DIAGNOSTIC_CHANNELS",
@@ -114,8 +117,27 @@ class Config:
     naming: Naming = field(default_factory=Naming)
     """How dictionary names collapse into component member names."""
 
+    name_overrides: Mapping[QualifiedName, str] = field(default_factory=dict)
+    """Members named outright, in place of whatever :attr:`naming` would produce.
+
+    Keyed by the member's full dictionary name, so
+    ``{QualifiedName.parse("Ref.dpDemo.SelectColor"): "SelectDemoColor"}`` names that one
+    command and leaves every other name alone.  Mangling routes *around* these: an
+    automatic name that would have collided with a chosen one is the one that grows.
+
+    A key matching nothing in the dictionary is a :class:`~.model.NamingError` rather
+    than a no-op, because the usual reason for one is a dictionary that has moved on.
+    """
+
     type_prefix: str = ""
     """Prepended to every generated type name; see :class:`~.spelling.TypeNamer`."""
+
+    type_name_overrides: Mapping[str, str] = field(default_factory=dict)
+    """Generated types named outright, keyed by dictionary qualified name.
+
+    ``{"Ref.DpDemo.ColorEnum": "DemoColor"}`` in place of ``Ref_DpDemo_ColorEnum``.
+    Checked the same way :attr:`name_overrides` is; see :class:`~.spelling.TypeNamer`.
+    """
 
     packetized: bool = True
     """Whether to decode ``FW_PACKET_PACKETIZED_TLM`` packets as well as channelized."""
@@ -265,8 +287,14 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
     regeneration that reshuffled them would silently invalidate archived telemetry.
     """
     warnings: list[str] = []
-    namer = TypeNamer(namespace=config.namespace, prefix=config.type_prefix)
+    _check_name_overrides(dictionary, config)
+    namer = TypeNamer(
+        namespace=config.namespace,
+        prefix=config.type_prefix,
+        overrides=dict(config.type_name_overrides),
+    )
     spelling = Spelling(dictionary, namer)
+    _check_type_name_overrides(dictionary, config, spelling, warnings)
 
     commands = _plan_commands(dictionary, config, warnings)
     events = _plan_events(dictionary, config, warnings)
@@ -286,15 +314,116 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
     )
 
 
+# ---------------------------------------------------------------------------
+# Explicitly chosen names
+# ---------------------------------------------------------------------------
+
+
+def _check_name_overrides(dictionary: Dictionary, config: Config) -> None:
+    """Check every member name override against the dictionary and against itself.
+
+    Everything that can be known before a single name is mangled is settled here, so
+    that a mistake in an override table is reported once, in full, and before anything
+    is written.
+    """
+    if not config.name_overrides:
+        return
+    known = {
+        *(command.name for command in dictionary.commands),
+        *(event.name for event in dictionary.events),
+        *(channel.name for channel in dictionary.channels),
+    }
+    reserved = {name.casefold(): name for name in RESERVED_MEMBER_NAMES}
+    chosen: dict[str, QualifiedName] = {}
+    for name, identifier in sorted(config.name_overrides.items(), key=_by_name):
+        context = f"name override for {name}"
+        check_member_identifier(identifier, context)
+        if name not in known:
+            raise NamingError(
+                f"{context}: matches no command, event or telemetry channel in the "
+                f"dictionary{_suggestion(str(name), [str(k) for k in known])}"
+            )
+        if identifier.casefold() in reserved:
+            raise NamingError(
+                f"{context}: {identifier!r} is one of the names the proxy declares "
+                "itself, so a member cannot take it"
+            )
+        first = chosen.setdefault(identifier.casefold(), name)
+        if first != name:
+            raise NamingError(
+                f"{context}: {identifier!r} is already the name chosen for {first}; "
+                "two members cannot share one name"
+            )
+
+
+def _check_type_name_overrides(
+    dictionary: Dictionary,
+    config: Config,
+    spelling: Spelling,
+    warnings: list[str],
+) -> None:
+    """The same for type name overrides, against the types the proxy will emit."""
+    if not config.type_name_overrides:
+        return
+    known = {definition.qualified_name for definition in dictionary.type_defs}
+    emitted = {definition.qualified_name for definition in spelling.type_defs()}
+    chosen: dict[str, str] = {}
+    for qualified, identifier in sorted(config.type_name_overrides.items()):
+        context = f"type name override for {qualified}"
+        check_type_identifier(identifier, context)
+        if qualified not in known:
+            raise NamingError(
+                f"{context}: matches no type in the dictionary"
+                f"{_suggestion(qualified, known)}"
+            )
+        first = chosen.setdefault(identifier.casefold(), qualified)
+        if first != qualified:
+            raise NamingError(
+                f"{context}: {identifier!r} is already the name chosen for {first}; "
+                "two types cannot share one name"
+            )
+        clash = [
+            other
+            for other in sorted(emitted)
+            if other != qualified and spelling.namer.flat(other) == identifier
+        ]
+        if clash:
+            raise NamingError(
+                f"{context}: {identifier!r} is already how {clash[0]} is spelled; "
+                "override that one too, or choose another name"
+            )
+        if qualified not in emitted:
+            warnings.append(
+                f"{context}: no mirrored member reaches that type, so the override has "
+                "nothing to rename"
+            )
+
+
+def _by_name(item: tuple[QualifiedName, str]) -> tuple[str, ...]:
+    return item[0].parts
+
+
+def _suggestion(wanted: str, known: Iterable[str]) -> str:
+    """`` (did you mean X?)``, or nothing if nothing is close enough."""
+    close = difflib.get_close_matches(wanted, sorted(known), n=1, cutoff=0.8)
+    return f" (did you mean {close[0]}?)" if close else ""
+
+
 def _mangle(
     names: list[QualifiedName], config: Config, kind: str, warnings: list[str]
 ) -> dict[QualifiedName, str]:
     """Assign identifiers for one member kind, noting any that had to be adjusted."""
-    assigned = mangle_all(names, config.naming, reserved=RESERVED_MEMBER_NAMES)
+    wanted = {name for name in names if name in config.name_overrides}
+    assigned = mangle_all(
+        names,
+        config.naming,
+        reserved=RESERVED_MEMBER_NAMES,
+        overrides={name: config.name_overrides[name] for name in wanted},
+    )
     adjusted = [
         (name, identifier)
         for name, identifier in assigned.items()
-        if identifier != config.naming.apply(name)
+        if name not in wanted and identifier != config.naming.apply(name)
     ]
     if adjusted:
         examples = ", ".join(f"{n} -> {i}" for n, i in sorted(adjusted)[:5])

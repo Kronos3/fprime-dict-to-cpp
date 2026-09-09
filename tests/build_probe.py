@@ -25,7 +25,7 @@ from fpptools import Toolchain, find_toolchain  # noqa: E402
 from fprime_dict_to_cpp import dictionary  # noqa: E402
 from fprime_dict_to_cpp.cpp import cpp_file_names, render_implementation  # noqa: E402
 from fprime_dict_to_cpp.fpp import render_component, render_types  # noqa: E402
-from fprime_dict_to_cpp.model import ComponentKind  # noqa: E402
+from fprime_dict_to_cpp.model import ComponentKind, QualifiedName  # noqa: E402
 from fprime_dict_to_cpp.naming import Naming  # noqa: E402
 from fprime_dict_to_cpp.plan import Config, resolve  # noqa: E402
 
@@ -69,6 +69,8 @@ def generate(
     namespace: str = "RefProxy",
     diagnostics: bool = True,
     packetized: bool = True,
+    name_overrides: dict[QualifiedName, str] | None = None,
+    type_name_overrides: dict[str, str] | None = None,
     path: Path = DICTIONARY,
 ) -> tuple[Config, Path, Path, tuple[str, ...]]:
     """Write a component's model and implementation into ``output``.
@@ -82,6 +84,8 @@ def generate(
         namespace=namespace,
         kind=kind,
         naming=Naming.preset(naming),
+        name_overrides=name_overrides or {},
+        type_name_overrides=type_name_overrides or {},
         diagnostics=diagnostics,
         packetized=packetized,
         include_prefix="",

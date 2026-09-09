@@ -527,3 +527,14 @@ class Dictionary:
 
 class DictionaryError(Exception):
     """A dictionary could not be understood."""
+
+
+class NamingError(Exception):
+    """A name that was asked for explicitly cannot be used.
+
+    Raised for an override -- see :attr:`~fprime_dict_to_cpp.plan.Config.name_overrides`
+    and :attr:`~fprime_dict_to_cpp.plan.Config.type_name_overrides` -- that names nothing
+    in the dictionary, that is not a usable identifier, or that collides with another
+    generated name.  Declining such a request quietly would produce a component whose
+    members are not the ones that were asked for.
+    """

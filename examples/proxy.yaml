@@ -1,0 +1,79 @@
+# A configuration file for fprime-dict-to-cpp, holding everything the flags hold:
+#
+#     fprime-dict-to-cpp --config examples/proxy.yaml
+#
+# Anything given on the command line as well wins over what is written here, so this
+# file is a starting point rather than a straitjacket:
+#
+#     fprime-dict-to-cpp --config examples/proxy.yaml -o build-artifacts/RefProxy
+#
+# `fprime-dict-to-cpp -i <dictionary>` writes a file like this one for a new component,
+# with the same keys and the same comments, so this is a reference rather than a
+# starting point you have to copy.
+
+# Relative dictionary and output paths resolve against *this file's* directory, so the
+# configuration keeps working from whatever directory it is run in.
+dictionary: ../tests/data/RefTopologyDictionary.json
+output: ../build-artifacts/RefProxy
+
+component: RefProxy
+namespace: RefProxy
+
+# active (default): decode on the component's own thread.  queued: on whatever drives
+# its run port.  passive: on the caller's thread.
+kind: active
+
+# instance (default) | qualified | source-case | member.  The two knobs the presets
+# combine are name-qualification and name-style, if a preset is not quite right.
+naming: instance
+# name-qualification: full
+# name-style: source-case
+
+# Individual members named outright, in place of whatever the scheme above would call
+# them: dictionary name on the left, the name the generated component declares on the
+# right.  Everything not listed is still mangled by the scheme, and mangling routes
+# around these -- an automatic name that would have collided with a chosen one is the
+# one that moves.
+#
+# A key that matches nothing in the dictionary is an error, not a no-op, so this table
+# cannot quietly outlive the dictionary it was written for.
+names:
+  Ref.dpDemo.SelectColor: SelectDemoColor
+  CdhCore.cmdDisp.CMD_NO_OP: NoOp
+
+# The same for generated type names, which are otherwise the dictionary's qualified name
+# flattened: Ref.DpDemo.ColorEnum becomes Ref_DpDemo_ColorEnum.  An override is used
+# exactly as written -- type-prefix is not applied to it.
+type-names:
+  Ref.DpDemo.ColorEnum: DemoColor
+
+# Prepend this to every generated type name, if one would otherwise clash with a
+# framework type of the same leaf name.
+type-prefix: ""
+
+# Path prefix for the #include of the autocoded base class; normally the component's
+# directory relative to the project root.  Defaults to the output directory's name, and
+# unlike the paths above it is an include path, not a filesystem path.
+# include-prefix: Ref/RefProxy
+
+# These read positively, where the flags that set them read negatively
+# (--no-packetized, --no-diagnostics).
+packetized: true
+diagnostics: true
+
+# true for clang-format's own default style, or name one: clang-format: Google
+clang-format: false
+
+# Rewrite CMakeLists.txt from the current file list.  Off, so that whatever this
+# project has added to it -- a dependency the FPP model does not imply, a target
+# property -- survives a regeneration.  Turn it on when the file list itself changes,
+# which is what turning packetized off does.
+cmake: false
+
+# Also parse the dictionary with fprime-gds and report any disagreement.
+cross-check: false
+
+# dry-run: report what would be generated without writing it.  quiet: only warnings
+# and errors.
+dry-run: false
+quiet: false

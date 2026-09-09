@@ -17,6 +17,11 @@ Two orthogonal knobs decide the shape:
 guarantees uniqueness: a group of names that would collide is re-qualified, and only
 if full qualification still collides does a numeric suffix appear.
 
+A scheme decides every name at once, which is the point of it, but no scheme suits every
+member of a real dictionary.  ``overrides`` names individual members outright:
+:func:`mangle_all` assigns those verbatim and mangles everything else *around* them, so
+an automatic name that would have collided with a chosen one is the one that moves.
+
 Uniqueness is enforced **case-insensitively and across all member kinds at once**.
 That is stricter than FPP needs, and deliberately so: ``fpp-to-cpp`` derives
 ``EVENTID_<UPPER>``, ``OPCODE_<UPPER>`` and ``CHANNELID_<UPPER>`` enumerators by
@@ -27,17 +32,19 @@ two identical C++ enumerators.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from .model import QualifiedName
+from .model import NamingError, QualifiedName
 
 __all__ = [
+    "MEMBER_IDENTIFIER",
     "Naming",
     "PRESETS",
     "Qualification",
     "Style",
+    "check_member_identifier",
     "join_camel",
     "join_screaming",
     "mangle_all",
@@ -187,6 +194,33 @@ def _source_case(segments: Sequence[str], member: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Explicitly chosen names
+# ---------------------------------------------------------------------------
+
+#: What an explicitly chosen member name has to look like.
+#:
+#: Stricter than FPP, which would take a leading underscore and, through its ``$``
+#: escape, even a reserved word.  ``fpp-to-cpp`` upper-cases a member name into
+#: ``EVENTID_<UPPER>`` and friends, though, so a leading underscore becomes a
+#: double-underscore-or-underscore-capital identifier, which C++ reserves to the
+#: implementation.  A name nobody chose is mangled from dictionary segments and cannot
+#: come out this way; a name somebody typed can, so it is checked.
+MEMBER_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+
+
+def check_member_identifier(identifier: str, context: str) -> None:
+    """Raise :class:`~.model.NamingError` unless ``identifier`` can name a member.
+
+    ``context`` says whose name it is, e.g. ``"name override for Ref.dpDemo.SendFile"``.
+    """
+    if not MEMBER_IDENTIFIER.match(identifier):
+        raise NamingError(
+            f"{context}: {identifier!r} is not a usable member name; it has to start "
+            "with a letter and hold only letters, digits and underscores"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Collision-free assignment
 # ---------------------------------------------------------------------------
 
@@ -196,25 +230,40 @@ def mangle_all(
     naming: Naming,
     *,
     reserved: Iterable[str] = (),
+    overrides: Mapping[QualifiedName, str] | None = None,
 ) -> dict[QualifiedName, str]:
     """Assign every name a unique identifier under ``naming``.
 
     ``reserved`` are identifiers already taken -- the generator's own port names, for
     instance -- which no member may be assigned.
 
+    ``overrides`` are names chosen outright, which are assigned verbatim and are taken
+    before anything is mangled.  A name in ``overrides`` that is not in ``names`` is
+    ignored here; :func:`~fprime_dict_to_cpp.plan.resolve` is what reports it, since only
+    the whole dictionary can say whether it matches nothing at all or just nothing of
+    this one kind.
+
     Escalation is per-collision-group, so a dictionary whose names are already
     distinct at the chosen qualification gets exactly the short names asked for, and
     only the ambiguous ones grow.  Ordering is by the name itself, so the result does
     not depend on the dictionary's section order.
     """
+    chosen = overrides or {}
     ordered = sorted(set(names), key=lambda n: n.parts)
     taken = {r.casefold() for r in reserved}
     assigned: dict[QualifiedName, str] = {}
 
+    # The chosen names first, and reserved as they are assigned, so that a mangled name
+    # colliding with one of them is the name that gives way.
+    for name in ordered:
+        if name in chosen:
+            assigned[name] = chosen[name]
+            taken.add(chosen[name].casefold())
+
     # Escalate whole groups together until each group is a single name, or until
     # there is nothing broader to try.
     pending: list[tuple[Qualification, list[QualifiedName]]] = [
-        (naming.qualification, ordered)
+        (naming.qualification, [n for n in ordered if n not in chosen])
     ]
     unresolved: list[tuple[str, list[QualifiedName]]] = []
     while pending:

@@ -79,6 +79,55 @@ class TestGenerate:
         assert all("not installed" in w for w in disagreements)
 
 
+class TestCMakeListsIsKept:
+    """Once it exists it belongs to the project, which is the one hand-edited case."""
+
+    def test_a_hand_edited_one_survives_a_regeneration(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        output = tmp_path / "RefProxy"
+        generate(ref_path, output, config)
+        cmake = output / "CMakeLists.txt"
+        cmake.write_text(
+            cmake.read_text() + "\n# a dependency the model cannot imply\n"
+        )
+        edited = cmake.read_text()
+
+        again = generate(ref_path, output, config)
+        assert again.kept == [cmake]
+        assert cmake.read_text() == edited
+        assert cmake in again.files
+
+    def test_cmake_rewrites_it(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        output = tmp_path / "RefProxy"
+        generate(ref_path, output, config)
+        cmake = output / "CMakeLists.txt"
+        cmake.write_text("# mine\n")
+        again = generate(ref_path, output, config, cmake=True)
+        assert again.kept == []
+        assert cmake in again.written
+        assert "register_fprime_module(" in cmake.read_text()
+
+    def test_one_that_already_agrees_is_simply_unchanged(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        # Not "kept": a plain regeneration of an untouched directory reads the way it
+        # always did, and nothing downstream rebuilds.
+        output = tmp_path / "RefProxy"
+        generate(ref_path, output, config)
+        again = generate(ref_path, output, config)
+        assert again.kept == []
+        assert output / "CMakeLists.txt" in again.unchanged
+
+    def test_it_is_written_when_it_is_not_there(
+        self, tmp_path: Path, ref_path: Path, config: Config
+    ) -> None:
+        result = generate(ref_path, tmp_path / "RefProxy", config)
+        assert result.directory / "CMakeLists.txt" in result.written
+
+
 class TestCMakeLists:
     def test_lists_exactly_the_files_that_were_written(self, written) -> None:  # type: ignore[no-untyped-def]
         text = (written.directory / "CMakeLists.txt").read_text()

@@ -10,6 +10,7 @@ from fprime_dict_to_cpp.model import (
     Channel,
     ComponentKind,
     Dictionary,
+    NamingError,
     QualifiedName,
     TelemetryPacket,
     TelemetryPacketSet,
@@ -228,6 +229,123 @@ class TestWarnings:
     def test_re_qualification_is_reported(self, ref: Dictionary) -> None:
         plan = resolve(ref, config_for(naming=Naming.preset("member")))
         assert any("extra qualification" in w for w in plan.warnings)
+
+
+SELECT_COLOR = QualifiedName.parse("Ref.dpDemo.SelectColor")
+COLOR_ENUM = "Ref.DpDemo.ColorEnum"
+
+
+class TestChosenNames:
+    """Overrides: the members and types the caller named instead of the scheme."""
+
+    def test_a_member_gets_the_name_it_was_given(self, ref: Dictionary) -> None:
+        plan = resolve(
+            ref, config_for(name_overrides={SELECT_COLOR: "SelectDemoColor"})
+        )
+        command = next(c for c in plan.commands if c.source.name == SELECT_COLOR)
+        assert command.identifier == "SelectDemoColor"
+        # Its emitters follow the chosen name, since they are derived from it.
+        event = next(e for e in plan.events if e.identifier == "dpDemo_ColorSelected")
+        assert event.log_function == "log_ACTIVITY_HI_dpDemo_ColorSelected"
+
+    def test_only_that_member_moves(self, ref: Dictionary) -> None:
+        plain = resolve(ref, config_for())
+        chosen = resolve(ref, config_for(name_overrides={SELECT_COLOR: "Whatever"}))
+        before = {str(c.source.name): c.identifier for c in plain.commands}
+        after = {str(c.source.name): c.identifier for c in chosen.commands}
+        differ = {name for name in before if before[name] != after[name]}
+        assert differ == {str(SELECT_COLOR)}
+
+    def test_local_ids_do_not_move_with_a_name(self, ref: Dictionary) -> None:
+        # Ordering is by remote opcode, so renaming must not renumber anything: the
+        # local ids reach the target's ground dictionary.
+        plain = resolve(ref, config_for())
+        chosen = resolve(ref, config_for(name_overrides={SELECT_COLOR: "Whatever"}))
+        assert [c.local_opcode for c in plain.commands] == [
+            c.local_opcode for c in chosen.commands
+        ]
+
+    def test_a_chosen_name_is_not_reported_as_re_qualified(
+        self, ref: Dictionary
+    ) -> None:
+        # It differs from what the scheme would produce by construction, which is not
+        # the same thing as having been adjusted to stay unique.
+        plan = resolve(ref, config_for(name_overrides={SELECT_COLOR: "Anything"}))
+        assert not any("extra qualification" in w for w in plan.warnings)
+
+    def test_an_automatic_name_gives_way_to_a_chosen_one(self, ref: Dictionary) -> None:
+        no_op = QualifiedName.parse("CdhCore.cmdDisp.CMD_NO_OP")
+        plan = resolve(
+            ref, config_for(name_overrides={no_op: "cmdDisp_CMD_NO_OP_STRING"})
+        )
+        names = {c.identifier for c in plan.commands}
+        assert "cmdDisp_CMD_NO_OP_STRING" in names
+        assert "CdhCore_cmdDisp_CMD_NO_OP_STRING" in names
+        assert any("extra qualification" in w for w in plan.warnings)
+
+    def test_a_type_gets_the_name_it_was_given(self, ref: Dictionary) -> None:
+        plan = resolve(ref, config_for(type_name_overrides={COLOR_ENUM: "DemoColor"}))
+        assert plan.spelling.namer.flat(COLOR_ENUM) == "DemoColor"
+        assert plan.spelling.namer.cpp(COLOR_ENUM) == "::RefProxy::DemoColor"
+
+
+class TestChosenNamesAreChecked:
+    def test_a_member_that_is_not_in_the_dictionary(self, ref: Dictionary) -> None:
+        absent = QualifiedName.parse("Ref.dpDemo.SelectColour")
+        with pytest.raises(NamingError) as raised:
+            resolve(ref, config_for(name_overrides={absent: "X"}))
+        message = str(raised.value)
+        assert "matches no command, event or telemetry channel" in message
+        assert "did you mean Ref.dpDemo.SelectColor?" in message
+
+    def test_a_type_that_is_not_in_the_dictionary(self, ref: Dictionary) -> None:
+        with pytest.raises(NamingError) as raised:
+            resolve(ref, config_for(type_name_overrides={"Ref.DpDemo.Colour": "X"}))
+        assert "matches no type in the dictionary" in str(raised.value)
+
+    def test_two_members_given_one_name(self, ref: Dictionary) -> None:
+        other = QualifiedName.parse("Ref.dpDemo.Dp")
+        overrides = {SELECT_COLOR: "Same", other: "same"}
+        with pytest.raises(NamingError) as raised:
+            resolve(ref, config_for(name_overrides=overrides))
+        assert "cannot share one name" in str(raised.value)
+
+    def test_a_name_the_proxy_declares_itself(self, ref: Dictionary) -> None:
+        for reserved in ("comIn", "ProxyDecodeErrors"):
+            with pytest.raises(NamingError) as raised:
+                resolve(ref, config_for(name_overrides={SELECT_COLOR: reserved}))
+            assert "the proxy declares itself" in str(raised.value)
+
+    def test_an_unusable_member_name(self, ref: Dictionary) -> None:
+        with pytest.raises(NamingError):
+            resolve(ref, config_for(name_overrides={SELECT_COLOR: "not an identifier"}))
+
+    def test_a_type_name_another_type_already_spells(self, ref: Dictionary) -> None:
+        # Two definitions of one name is an FPP redefinition, and fpp-to-cpp would
+        # abort on the duplicate file long before that.
+        with pytest.raises(NamingError) as raised:
+            resolve(
+                ref,
+                config_for(type_name_overrides={COLOR_ENUM: "Ref_DpDemo_DpReqType"}),
+            )
+        assert "already how Ref.DpDemo.DpReqType is spelled" in str(raised.value)
+
+    def test_a_type_no_mirrored_member_reaches_is_a_warning(
+        self, ref: Dictionary
+    ) -> None:
+        # It is in the dictionary, so it is not a typo, but nothing will be emitted
+        # under the chosen name either.
+        unreachable = next(
+            definition.qualified_name
+            for definition in ref.type_defs
+            if definition.qualified_name
+            not in {
+                emitted.qualified_name
+                for emitted in resolve(ref, config_for()).spelling.type_defs()
+            }
+        )
+        plan = resolve(ref, config_for(type_name_overrides={unreachable: "Unused"}))
+        assert any("nothing to rename" in w for w in plan.warnings)
 
 
 class TestConfig:

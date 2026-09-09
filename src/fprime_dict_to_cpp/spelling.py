@@ -18,8 +18,8 @@ autocoder with ``error: duplicate C++ file``.  The Ref dictionary has two such p
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from enum import Enum
 
 from .model import (
@@ -28,13 +28,22 @@ from .model import (
     Dictionary,
     DictionaryError,
     EnumDef,
+    NamingError,
     StructDef,
     TypeDef,
     TypeKind,
     TypeRef,
 )
 
-__all__ = ["CPP_KEYWORDS", "Context", "Spelling", "TypeNamer", "safe_identifier"]
+__all__ = [
+    "CPP_KEYWORDS",
+    "Context",
+    "Spelling",
+    "TYPE_IDENTIFIER",
+    "TypeNamer",
+    "check_type_identifier",
+    "safe_identifier",
+]
 
 
 class Context(Enum):
@@ -100,6 +109,38 @@ def safe_identifier(name: str) -> str:
     return f"{name}_" if name in CPP_KEYWORDS else name
 
 
+#: What an explicitly chosen type name has to look like.  See
+#: :func:`check_type_identifier` for why it is stricter than FPP.
+TYPE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+
+
+def check_type_identifier(identifier: str, context: str) -> None:
+    """Raise :class:`~.model.NamingError` unless ``identifier`` can name a type.
+
+    A derived name is put right by :func:`safe_identifier` and, for an implied use, by
+    :data:`SHADOW_ESCAPE_PREFIX`.  A chosen one is not quietly rewritten -- being told
+    that ``FwSizeStoreType`` would take every string in the module down with it is more
+    use than getting ``Remote_FwSizeStoreType`` and wondering where it came from.
+
+    ``context`` says whose name it is, e.g. ``"type name override for Ref.DpDemo.Color"``.
+    """
+    if not TYPE_IDENTIFIER.match(identifier):
+        raise NamingError(
+            f"{context}: {identifier!r} is not a usable type name; it has to start with "
+            "a letter and hold only letters, digits and underscores"
+        )
+    if identifier in CPP_KEYWORDS:
+        raise NamingError(
+            f"{context}: {identifier!r} is a C++ keyword, and a type name reaches the "
+            "generated C++ verbatim"
+        )
+    if identifier in IMPLIED_USE_NAMES:
+        raise NamingError(
+            f"{context}: {identifier!r} is a name FPP uses implicitly; defining it in "
+            "the proxy's module would stop every string in that module from compiling"
+        )
+
+
 @dataclass(frozen=True)
 class TypeNamer:
     """Maps a dictionary type's qualified name onto its generated spellings."""
@@ -117,8 +158,22 @@ class TypeNamer:
     certain.
     """
 
+    overrides: Mapping[str, str] = field(default_factory=dict)
+    """Types named outright, keyed by their dictionary qualified name.
+
+    Flattening is unambiguous but verbose, and the result is what every use site in the
+    generated FPP and C++ reads, so a type worth naming can be named.  An override is the
+    name that comes out: :attr:`prefix` is not applied to it, and neither is the
+    shadow escape, because both exist to keep a *derived* name out of trouble and an
+    override that would land in trouble is refused outright by
+    :func:`check_type_identifier`.
+    """
+
     def flat(self, qualified: str) -> str:
         """The generated type's own name: ``Ref.DpDemo.ColorEnum`` -> ``Ref_DpDemo_ColorEnum``."""
+        chosen = self.overrides.get(qualified)
+        if chosen is not None:
+            return chosen
         joined = "_".join(part for part in qualified.split(".") if part)
         name = f"{self.prefix}{joined}"
         if name in IMPLIED_USE_NAMES:

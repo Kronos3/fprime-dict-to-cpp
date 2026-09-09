@@ -39,6 +39,9 @@ Add it to the build with:
   add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/RefProxy")
 ```
 
+For a new component, start with [`-i`](#getting-started): it asks the few questions that
+shape one and leaves a configuration file behind to iterate through.
+
 ## Installation
 
 ```sh
@@ -47,7 +50,9 @@ pip install git+https://github.com/fprime-community/fprime-dict-to-cpp.git
 
 Requires Python 3.10 or newer. The C++ comes out through
 [`fprime-cpp-codegen`](https://github.com/fprime-community/fprime-cpp-codegen); the FPP
-is emitted directly. Nothing else is needed at runtime.
+is emitted directly. Nothing else is needed at runtime, unless you want
+[`--config`](#configuration-file) (`pip install 'fprime-dict-to-cpp[yaml]'`, for PyYAML)
+or [`--cross-check`](#other-options) (`[gds]`, for `fprime-gds`).
 
 ## What gets generated
 
@@ -79,7 +84,105 @@ plus the usual command, event, text-event, telemetry and time-get special ports.
 Connect `comIn` downstream of whatever deframes the remote's link, and `comOut` upstream
 of whatever frames it.
 
+## Getting started
+
+`-i` asks the handful of questions a component is built around, generates it, and writes a
+**configuration file beside it** holding those answers with every finer-grained option
+listed and commented out:
+
+```sh
+fprime-dict-to-cpp -i RefTopologyDictionary.json
+```
+
+```
+a proxy for Ref.Ref
+component name [RefProxy]:
+output directory [RefProxy]: Ref/RefProxy
+component kind (passive/queued/active) [active]: passive
+
+RefProxy: 116 commands, 311 events, 163 telemetry channels, 34 telemetry packets
+  wrote     Ref/RefProxy/RefProxy.yaml
+  wrote     Ref/RefProxy/CMakeLists.txt
+  wrote     Ref/RefProxy/RefProxy.fpp
+  ...
+
+Add it to the build with:
+  add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/RefProxy")
+
+Everything else is configured in Ref/RefProxy/RefProxy.yaml.  Change a key there and re-run:
+  fprime-dict-to-cpp --config Ref/RefProxy/RefProxy.yaml
+```
+
+From then on that file is the interface. Uncomment a key, re-run, read the diff:
+
+```yaml
+# how Ref.dpDemo.SelectColor collapses into one member name.  instance:
+#   dpDemo_SelectColor.  qualified: Ref_dpDemo_SelectColor.  source-case:
+#   RefDpDemoSelectColor.  member: SelectColor
+naming: qualified
+
+# members named outright, in place of whatever the scheme above calls them; a key
+#   matching nothing in the dictionary is an error, not a no-op
+names:
+  Ref.dpDemo.SelectColor: SelectDemoColor
+```
+
+Iterating never undoes the setup. **The configuration file is written once** — `-i` refuses
+to write over one, and a `--config` run never touches it — and so is `CMakeLists.txt`, which
+is reported as `kept` once it exists so that a dependency the FPP model cannot imply, or a
+target property, survives a regeneration. `--cmake` rewrites it when the file list itself
+has changed.
+
+Four questions is all of interactive mode. Everything else is a decision better made
+against a diff than against a prompt, which is what the file it leaves behind is for. An
+empty answer accepts the default in brackets, any flag given alongside `-i` becomes that
+default (`-i --kind passive`), and the dictionary is asked for if it was left off — or
+again, if it will not load. The questions go to standard error, so the report on standard
+output stays pipeable.
+
 ## Options
+
+Every option below can be given as a flag or written in the configuration file, under the
+same name. **A flag beats the file, and the file beats the built-in default.**
+
+### Configuration file
+
+`--config FILE` reads the options out of YAML — one key per option, named as the option is
+named. `-i` writes one; [`examples/proxy.yaml`](examples/proxy.yaml) is a fully commented
+reference. The short version:
+
+```yaml
+dictionary: dictionaries/RefTopologyDictionary.json
+output: Ref/RefProxy
+component: RefProxy
+kind: passive
+naming: qualified
+type-prefix: Rp_
+packetized: true
+diagnostics: false
+```
+
+```sh
+fprime-dict-to-cpp --config proxy.yaml
+fprime-dict-to-cpp --config proxy.yaml -o build-artifacts/RefProxy   # flags still win
+```
+
+* The file's values become the parser's defaults, so the precedence above holds for every
+  option without a per-option rule.
+* Underscores work wherever a hyphen does, so `type_prefix` is as good as `type-prefix`.
+* `packetized` and `diagnostics` read **positively**, where the flags that set them read
+  negatively (`--no-packetized`, `--no-diagnostics`).
+* Relative `dictionary` and `output` paths resolve against **the file's own directory**,
+  not the working directory, so a configuration committed next to a deployment keeps
+  working whatever directory it is run from. (`include-prefix` is an `#include` path, not
+  a filesystem path, and is used exactly as written.)
+* An unknown key, a value outside a choice, a non-boolean where a boolean belongs, or the
+  same key twice is an error naming the key and what it will accept — nothing is written
+  first. YAML would let the last of two duplicate keys win, which for an override table
+  would silently drop one.
+
+Reading YAML needs PyYAML, which is not otherwise required:
+`pip install 'fprime-dict-to-cpp[yaml]'`.
 
 ### Component kind
 
@@ -122,10 +225,53 @@ you asked for — and only if full qualification still collides does a numeric s
 appear. Uniqueness is enforced case-insensitively, because `fpp-to-cpp` derives
 `EVENTID_<UPPER>` and friends by upper-casing the member name.
 
+### Naming one thing at a time
+
+No scheme suits every member of a real dictionary, so members and generated types can be
+named outright. These are the two configuration keys with no flag — a table is not a shape
+a command line has — so `--config` is the way in:
+
+```yaml
+# dictionary name: the name the generated component declares
+names:
+  Ref.dpDemo.SelectColor: SelectDemoColor
+  CdhCore.cmdDisp.CMD_NO_OP: NoOp
+
+# dictionary name: the generated type's name, instead of the flattened qualified name
+type-names:
+  Ref.DpDemo.ColorEnum: DemoColor   # not Ref_DpDemo_ColorEnum
+```
+
+* Everything not listed is still mangled by the scheme, and **mangling routes around
+  these**: an automatic name that would have collided with a chosen one is the one that
+  grows, and that adjustment is reported as a warning.
+* A `type-names` value is used exactly as written — `--type-prefix` is not applied to it,
+  and neither is the shadow escape that keeps a *derived* name clear of FPP's implied uses.
+* Local ids do not move with a name. Ordering is by remote opcode or id, so renaming a
+  member cannot renumber the ground dictionary the target publishes.
+
+Everything that can go wrong is an error before anything is written, and says what to do:
+
+```
+error: proxy.yaml: name override for Ref.dpDemo.SelectColour: matches no command, event
+  or telemetry channel in the dictionary (did you mean Ref.dpDemo.SelectColor?)
+```
+
+A key matching nothing in the dictionary is refused rather than ignored — the usual reason
+for one is a dictionary that has moved on, and a silently dropped override means shipping a
+component whose members are not the ones the file asked for. So is a name that is not a
+usable identifier, one that two entries both ask for, one that the proxy already declares
+itself (`comIn`, `ProxyDecodeErrors`), and, for a type, a C++ keyword or a name FPP uses
+implicitly. A type override that collides with how another emitted type is spelled names
+that type, so both can be renamed.
+
 ### Other options
 
 | Option | Effect |
 | --- | --- |
+| `--config FILE` | read these options from a YAML file (flags override it) |
+| `-i`, `--interactive` | set up a component and a configuration file to iterate on |
+| `--cmake` | rewrite `CMakeLists.txt`, which is otherwise kept once it exists |
 | `-c`, `--component` | the component's name (default `<Deployment>Proxy`) |
 | `-n`, `--namespace` | the FPP module for the component and its types (default: the component name) |
 | `--no-packetized` | skip `FW_PACKET_PACKETIZED_TLM` decoding |
@@ -205,6 +351,10 @@ path. `fpp-to-cpp` derives a generated file name from a type's *leaf* name plus 
 enclosing component and ignores enclosing modules, so two same-leaf types in different
 modules abort the autocoder with `error: duplicate C++ file`. The `Ref` dictionary
 contains two such pairs (`DpReqType`, `Enabled`), so this is not hypothetical.
+
+Flattening is unambiguous rather than pretty, and the result is what every use site in the
+generated FPP and C++ reads, so a type worth naming can be named outright — see
+[naming one thing at a time](#naming-one-thing-at-a-time).
 
 Only types **reachable** from a mirrored member are emitted — 63 of `Ref`'s 99. An
 unused definition costs a generated C++ file pair, and one of them actively breaks the

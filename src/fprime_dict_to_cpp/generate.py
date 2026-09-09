@@ -33,10 +33,19 @@ class Generated:
     downstream of the component.
     """
 
+    kept: list[Path] = field(default_factory=list)
+    """Files that exist, are not what would be generated, and were left alone anyway.
+
+    ``CMakeLists.txt`` only: it is the one generated file a project is expected to edit
+    -- a dependency the FPP model does not imply, a target property -- and a run that is
+    iterating on the *configuration* has no business undoing that.  ``cmake=True``
+    rewrites it, which is what to do when the file list itself has changed.
+    """
+
     @property
     def files(self) -> list[Path]:
         """Every file the component owns, written or not."""
-        return sorted([*self.written, *self.unchanged])
+        return sorted([*self.written, *self.unchanged, *self.kept])
 
     @property
     def warnings(self) -> tuple[str, ...]:
@@ -51,13 +60,16 @@ def generate(
     *,
     clang_format: bool | str = False,
     cross_check: bool = False,
+    cmake: bool = False,
 ) -> Generated:
     """Read the dictionary at ``dictionary_path`` and write a component into ``output``.
 
     ``clang_format`` runs the generated C++ through ``clang-format``; pass a style name
     to choose one.  ``cross_check`` additionally parses the dictionary with
     ``fprime-gds``'s own loaders and reports any disagreement as a warning, which is
-    worth doing when adopting a dictionary from an unfamiliar toolchain.
+    worth doing when adopting a dictionary from an unfamiliar toolchain.  ``cmake``
+    rewrites an existing ``CMakeLists.txt``, which is otherwise left as the project left
+    it; see :attr:`Generated.kept`.
     """
     parsed = dictionary.load(dictionary_path)
     extra: list[str] = []
@@ -67,7 +79,12 @@ def generate(
             for problem in dictionary.cross_check(dictionary_path, parsed)
         ]
     return generate_from_plan(
-        parsed, output, config, clang_format=clang_format, extra_warnings=extra
+        parsed,
+        output,
+        config,
+        clang_format=clang_format,
+        cmake=cmake,
+        extra_warnings=extra,
     )
 
 
@@ -77,6 +94,7 @@ def generate_from_plan(
     config: Config,
     *,
     clang_format: bool | str = False,
+    cmake: bool = False,
     extra_warnings: list[str] | None = None,
 ) -> Generated:
     """Write a component for an already-parsed dictionary."""
@@ -90,13 +108,25 @@ def generate_from_plan(
 
     written: list[Path] = []
     unchanged: list[Path] = []
+    kept: list[Path] = []
 
     for name, text in (
         (f"{component}Types.fpp", render_types(plan)),
         (f"{component}.fpp", render_component(plan)),
-        ("CMakeLists.txt", render_cmake(plan)),
     ):
         _write(directory / name, text, written, unchanged)
+
+    # An existing CMakeLists.txt that says something else was edited on purpose, so it
+    # is reported rather than replaced.  One that already agrees is simply unchanged,
+    # which keeps a plain regeneration reading the way it always did.
+    cmake_file = directory / "CMakeLists.txt"
+    cmake_text = render_cmake(plan)
+    if cmake or not cmake_file.is_file():
+        _write(cmake_file, cmake_text, written, unchanged)
+    elif cmake_file.read_text(encoding="utf-8") == cmake_text:
+        unchanged.append(cmake_file)
+    else:
+        kept.append(cmake_file)
 
     result = render_implementation(plan).write(
         directory, formatter=_formatter(clang_format)
@@ -105,7 +135,11 @@ def generate_from_plan(
     unchanged.extend(result.unchanged)
 
     return Generated(
-        directory=directory, plan=plan, written=written, unchanged=unchanged
+        directory=directory,
+        plan=plan,
+        written=written,
+        unchanged=unchanged,
+        kept=kept,
     )
 
 

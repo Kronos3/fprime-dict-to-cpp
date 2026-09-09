@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fprime_dict_to_cpp.model import Dictionary, TypeKind, TypeRef
+from fprime_dict_to_cpp.model import Dictionary, NamingError, TypeKind, TypeRef
 from fprime_dict_to_cpp.plan import Plan
 from fprime_dict_to_cpp.spelling import (
     CPP_KEYWORDS,
@@ -12,6 +12,7 @@ from fprime_dict_to_cpp.spelling import (
     Context,
     Spelling,
     TypeNamer,
+    check_type_identifier,
     safe_identifier,
 )
 
@@ -51,6 +52,53 @@ class TestTypeNamer:
         for name in IMPLIED_USE_NAMES:
             assert namer.flat(name) != name
             assert name in namer.flat(name)
+
+
+class TestChosenTypeNames:
+    """``TypeNamer.overrides``: types named outright instead of flattened."""
+
+    def test_replace_the_flattened_name_everywhere(self) -> None:
+        namer = TypeNamer(
+            namespace="RefProxy", overrides={"Ref.DpDemo.ColorEnum": "DemoColor"}
+        )
+        assert namer.flat("Ref.DpDemo.ColorEnum") == "DemoColor"
+        assert namer.fpp("Ref.DpDemo.ColorEnum") == "DemoColor"
+        assert namer.cpp("Ref.DpDemo.ColorEnum") == "::RefProxy::DemoColor"
+
+    def test_leave_every_other_type_alone(self) -> None:
+        namer = TypeNamer(namespace="P", overrides={"A.B": "C"})
+        assert namer.flat("D.E") == "D_E"
+
+    def test_are_used_as_written_without_the_prefix(self) -> None:
+        # The prefix exists to keep a derived name clear of a framework type; a name
+        # somebody chose is the name they chose.
+        namer = TypeNamer(namespace="P", prefix="Rp_", overrides={"TimeBase": "When"})
+        assert namer.flat("TimeBase") == "When"
+        assert namer.flat("Other") == "Rp_Other"
+
+
+class TestCheckTypeIdentifier:
+    @pytest.mark.parametrize("identifier", ["DemoColor", "Color2", "a_b_C"])
+    def test_accepts_a_usable_name(self, identifier: str) -> None:
+        check_type_identifier(identifier, "type name override for A.B")
+
+    @pytest.mark.parametrize("identifier", ["", "2Color", "_Color", "a b", "A.B"])
+    def test_rejects_what_is_not_an_identifier(self, identifier: str) -> None:
+        with pytest.raises(NamingError):
+            check_type_identifier(identifier, "type name override for A.B")
+
+    def test_rejects_a_cpp_keyword_rather_than_escaping_it(self) -> None:
+        # safe_identifier would quietly make it "delete_", which is not what was asked
+        # for; a chosen name that cannot be used is worth saying so about.
+        with pytest.raises(NamingError) as raised:
+            check_type_identifier("delete", "type name override for A.B")
+        assert "C++ keyword" in str(raised.value)
+
+    @pytest.mark.parametrize("identifier", sorted(IMPLIED_USE_NAMES))
+    def test_rejects_a_name_fpp_uses_implicitly(self, identifier: str) -> None:
+        with pytest.raises(NamingError) as raised:
+            check_type_identifier(identifier, "type name override for A.B")
+        assert "implicitly" in str(raised.value)
 
 
 class TestSafeIdentifier:

@@ -44,7 +44,9 @@ dependencies = ["fprime-cpp-codegen"]
 # fprime-gds is used only to cross-check our own dictionary parse; the generator
 # does not need it at runtime.
 gds = ["fprime-gds>=4.3"]
-dev = ["pytest>=7", "mypy>=1.11", "black>=24", "fprime-gds>=4.3"]
+# PyYAML is needed only by --config, and is imported when that flag is used.
+yaml = ["pyyaml>=5.4"]
+dev = ["pytest>=7", "mypy>=1.11", "black>=24", "fprime-gds>=4.3", "pyyaml>=5.4"]
 
 [project.scripts]
 fprime-dict-to-cpp = "fprime_dict_to_cpp.cli:main"
@@ -78,4 +80,10 @@ files = ["src/fprime_dict_to_cpp"]
 # fprime-gds ships no type information, and it is an optional cross-check anyway.
 [[tool.mypy.overrides]]
 module = "fprime_gds.*"
+ignore_missing_imports = true
+
+# PyYAML ships no type information either, and --config reaches it through one
+# deliberately untyped accessor.
+[[tool.mypy.overrides]]
+module = "yaml"
 ignore_missing_imports = true

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from fprime_dict_to_cpp.model import Dictionary, QualifiedName
+from fprime_dict_to_cpp.model import Dictionary, NamingError, QualifiedName
 from fprime_dict_to_cpp.naming import (
     PRESETS,
     Naming,
     Qualification,
     Style,
+    check_member_identifier,
     join_camel,
     join_screaming,
     mangle_all,
@@ -156,6 +157,68 @@ class TestMangleAll:
         forward = mangle_all(names, Naming.preset("instance"))
         backward = mangle_all(list(reversed(names)), Naming.preset("instance"))
         assert forward == backward
+
+
+class TestChosenNames:
+    """``overrides``: names the caller picked, which mangling has to work around."""
+
+    def test_are_assigned_verbatim(self) -> None:
+        assigned = mangle_all(
+            [CMD, NO_OP], Naming.preset("instance"), overrides={CMD: "SelectDemoColor"}
+        )
+        assert assigned[CMD] == "SelectDemoColor"
+        # Everything else is still mangled by the scheme.
+        assert assigned[NO_OP] == "cmdDisp_CMD_NO_OP"
+
+    def test_a_scheme_that_wanted_the_same_name_gives_way(self) -> None:
+        # The chosen name is what the caller asked for, so the automatic one moves --
+        # not the other way round, and not into a numeric suffix while a qualification
+        # is still available.
+        wanted = QualifiedName.parse("Ref.SG1.Info")
+        other = QualifiedName.parse("Ref.SG2.Info")
+        assigned = mangle_all(
+            [wanted, other], Naming.preset("member"), overrides={wanted: "Info"}
+        )
+        assert assigned[wanted] == "Info"
+        assert assigned[other] == "SG2_Info"
+
+    def test_are_taken_case_insensitively(self) -> None:
+        chosen = QualifiedName.parse("M.i.Thing")
+        automatic = QualifiedName.parse("M.j.THING")
+        assigned = mangle_all(
+            [chosen, automatic], Naming.preset("member"), overrides={chosen: "Thing"}
+        )
+        assert assigned[chosen] == "Thing"
+        assert assigned[automatic].casefold() != "thing"
+
+    def test_one_for_a_name_that_is_not_being_mangled_is_ignored(self) -> None:
+        # resolve() reports it; here it must simply not appear in the result.
+        absent = QualifiedName.parse("Nowhere.at.All")
+        assigned = mangle_all(
+            [CMD], Naming.preset("member"), overrides={absent: "Whatever"}
+        )
+        assert assigned == {CMD: "SelectColor"}
+
+    def test_do_not_have_to_be_reachable_by_any_scheme(self) -> None:
+        # The point of choosing a name is that no scheme would have produced it.
+        assigned = mangle_all([CMD], Naming.preset("qualified"), overrides={CMD: "c"})
+        assert assigned[CMD] == "c"
+
+
+class TestCheckMemberIdentifier:
+    @pytest.mark.parametrize(
+        "identifier", ["SelectColor", "CMD_NO_OP", "a", "x9", "A_1_b"]
+    )
+    def test_accepts_a_usable_name(self, identifier: str) -> None:
+        check_member_identifier(identifier, "name override for X.y.Z")
+
+    @pytest.mark.parametrize(
+        "identifier", ["", "9lives", "_leading", "has space", "has-dash", "dotted.name"]
+    )
+    def test_rejects_anything_else(self, identifier: str) -> None:
+        with pytest.raises(NamingError) as raised:
+            check_member_identifier(identifier, "name override for X.y.Z")
+        assert "name override for X.y.Z" in str(raised.value)
 
 
 class TestAgainstRealDictionary:

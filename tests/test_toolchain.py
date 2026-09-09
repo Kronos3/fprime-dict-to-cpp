@@ -23,7 +23,7 @@ import build_probe
 from fpptools import Toolchain, find_toolchain
 
 from fprime_dict_to_cpp.fpp import render_component, render_types
-from fprime_dict_to_cpp.model import ComponentKind, Dictionary
+from fprime_dict_to_cpp.model import ComponentKind, Dictionary, QualifiedName
 from fprime_dict_to_cpp.naming import PRESETS, Naming
 from fprime_dict_to_cpp.plan import Config, resolve
 
@@ -65,6 +65,35 @@ class TestFppCheck:
         types_file.write_text(render_types(plan))
         model_file.write_text(render_component(plan))
 
+        result = toolchain.check(types_file, model_file)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    def test_accepts_names_that_were_chosen_rather_than_mangled(
+        self, toolchain: Toolchain, ref: Dictionary, tmp_path: Path
+    ) -> None:
+        # An override reaches the model verbatim, so fpp-check is the authority on
+        # whether what somebody typed is a name FPP will take.
+        plan = resolve(
+            ref,
+            Config(
+                component="RefProxy",
+                namespace="RefProxy",
+                kind=ComponentKind.ACTIVE,
+                naming=Naming.preset("instance"),
+                name_overrides={
+                    QualifiedName.parse("Ref.dpDemo.SelectColor"): "SelectDemoColor",
+                    QualifiedName.parse("CdhCore.cmdDisp.CMD_NO_OP"): "NoOp",
+                    # A member named after an FPP reserved word, which the writer has to
+                    # escape for the model to parse at all.
+                    QualifiedName.parse("Ref.dpDemo.DpStarted"): "time",
+                },
+                type_name_overrides={"Ref.DpDemo.ColorEnum": "DemoColor"},
+            ),
+        )
+        types_file = tmp_path / "RefProxyTypes.fpp"
+        model_file = tmp_path / "RefProxy.fpp"
+        types_file.write_text(render_types(plan))
+        model_file.write_text(render_component(plan))
         result = toolchain.check(types_file, model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
@@ -124,6 +153,28 @@ class TestAutocodeAndCompile:
         result = build_probe.run(tmp_path / "out", keep=False, kind=kind)
         assert result.ok, "\n\n".join(result.failures())
         assert result.compiles, "nothing was compiled"
+
+    def test_compiles_with_names_that_were_chosen(
+        self, toolchain: Toolchain, tmp_path: Path
+    ) -> None:
+        # fpp-to-cpp derives a generated file name and a C++ identifier from a type's
+        # name, so a renamed type is only really renamed if this passes.
+        if build_probe.compiler() is None:
+            pytest.skip("no C++ compiler on PATH")
+        if not build_probe.framework_is_built(toolchain):
+            pytest.skip("the F Prime checkout has not been autocoded")
+        result = build_probe.run(
+            tmp_path / "out",
+            keep=False,
+            name_overrides={
+                QualifiedName.parse("Ref.dpDemo.SelectColor"): "SelectDemoColor"
+            },
+            type_name_overrides={"Ref.DpDemo.ColorEnum": "DemoColor"},
+        )
+        assert result.ok, "\n\n".join(result.failures())
+        assert result.compiles, "nothing was compiled"
+        model = (tmp_path / "out" / "RefProxy.fpp").read_text()
+        assert "SelectDemoColor" in model and "DemoColor" in model
 
     def test_compiles_with_the_optional_parts_turned_off(
         self, toolchain: Toolchain, tmp_path: Path

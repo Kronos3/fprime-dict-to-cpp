@@ -507,14 +507,57 @@ class Options:
         Spec(
             "omit",
             flag=False,
-            note="members the component does not declare, as dictionary names or globs; "
-            "an omitted member keeps a port hooked onto it and loses only its command, "
-            "event or telemetry declaration, and one matching nothing is an error",
+            note="members of any kind the component does not declare, as dictionary names "
+            "or globs; an omitted member keeps a port hooked onto it and loses only its "
+            "command, event or telemetry declaration, and one matching nothing is an error",
             example=(
                 "omit:",
                 '  - "Ref.dpDemo.*"',
                 '  - "*_PRM_SET"',
                 "  - CdhCore.cmdDisp.CMD_NO_OP",
+            ),
+        ),
+        default_factory=tuple,
+    )
+
+    omit_commands: Sequence[str] = option(
+        Spec(
+            "omit-commands",
+            flag=False,
+            note="commands the component does not declare, spelled as omit is but matched "
+            "against command names only, so an entry naming an event is an error",
+            example=(
+                "omit-commands:",
+                '  - "*_PRM_SET"',
+                "  - CdhCore.cmdDisp.CMD_NO_OP",
+            ),
+        ),
+        default_factory=tuple,
+    )
+
+    omit_events: Sequence[str] = option(
+        Spec(
+            "omit-events",
+            flag=False,
+            note="events the component does not declare, spelled as omit-commands is",
+            example=(
+                "omit-events:",
+                '  - "Ref.dpDemo.*"',
+            ),
+        ),
+        default_factory=tuple,
+    )
+
+    omit_telemetry: Sequence[str] = option(
+        Spec(
+            "omit-telemetry",
+            flag=False,
+            note="telemetry channels the component does not declare, spelled as "
+            "omit-commands is; an omitted channel is still read, since channelized "
+            "telemetry carries no lengths to skip it by",
+            example=(
+                "omit-telemetry:",
+                '  - "Ref.dpDemo.*"',
             ),
         ),
         default_factory=tuple,
@@ -716,6 +759,9 @@ class Options:
             type_prefix=self.type_prefix,
             type_name_overrides=self.type_name_overrides,
             omit=self.omit,
+            omit_commands=self.omit_commands,
+            omit_events=self.omit_events,
+            omit_telemetry=self.omit_telemetry,
             command_ports=self.command_ports,
             event_ports=self.event_ports,
             telemetry_ports=self.telemetry_ports,

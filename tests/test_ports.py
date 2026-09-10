@@ -30,6 +30,10 @@ CHANNEL = QualifiedName.parse("CdhCore.cmdDisp.CommandsDispatched")
 OTHER_CHANNEL = QualifiedName.parse("CdhCore.cmdDisp.CommandErrors")
 PACKET = "RefPackets.CDH"
 
+#: A name the Ref dictionary gives both an event and a telemetry channel, which is what
+#: makes omitting one kind of it distinguishable from omitting the member.
+SHARED = QualifiedName.parse("CdhCore.version.FrameworkVersion")
+
 
 def config_for(**overrides: object) -> Config:
     base: dict[str, object] = dict(
@@ -137,6 +141,94 @@ class TestOmit:
         plan = plan_for(ref, omit=["Ref.dpDemo.*"], command_ports={COMMAND: True})
         emitted = {d.qualified_name for d in plan.spelling.type_defs()}
         assert "Ref.DpDemo.ColorEnum" in emitted
+
+
+class TestOmitByKind:
+    """``omit-commands``, ``omit-events`` and ``omit-telemetry``: one kind at a time."""
+
+    def test_a_kind_list_leaves_the_other_kinds_alone(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, omit_commands=["Ref.dpDemo.*"])
+        declared = {str(c.source.name) for c in plan.declared_commands}
+        assert not any(name.startswith("Ref.dpDemo.") for name in declared)
+        events = {str(e.source.name) for e in plan.declared_events}
+        assert any(name.startswith("Ref.dpDemo.") for name in events)
+
+    def test_a_star_takes_out_only_its_own_kind(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, omit_events=["*"])
+        assert not plan.declared_events
+        assert len(plan.declared_commands) == len(ref.commands)
+        assert len(plan.declared_channels) == len(ref.channels)
+
+    def test_each_kind_has_its_own_list(self, ref: Dictionary) -> None:
+        plan = plan_for(
+            ref,
+            omit_commands=[str(NO_OP)],
+            omit_events=[str(EVENT)],
+            omit_telemetry=[str(CHANNEL)],
+        )
+        assert NO_OP not in {c.source.name for c in plan.declared_commands}
+        assert EVENT not in {e.source.name for e in plan.declared_events}
+        assert CHANNEL not in {c.source.name for c in plan.declared_channels}
+        # And nothing else went with them.
+        assert len(plan.declared_commands) == len(ref.commands) - 1
+        assert len(plan.declared_events) == len(ref.events) - 1
+        assert len(plan.declared_channels) == len(ref.channels) - 1
+
+    def test_a_shared_name_is_omitted_one_kind_at_a_time(self, ref: Dictionary) -> None:
+        # An event and a channel share this name, so omitting the event has to leave the
+        # channel declared -- which omit, matching every kind, would not.
+        plan = plan_for(ref, omit_events=[str(SHARED)])
+        assert SHARED not in {e.source.name for e in plan.declared_events}
+        assert SHARED in {c.source.name for c in plan.declared_channels}
+
+    def test_the_two_lists_are_a_union(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, omit=[str(EVENT)], omit_events=[str(SHARED)])
+        omitted = {str(EVENT), str(SHARED)}
+        assert not omitted & {str(e.source.name) for e in plan.declared_events}
+
+    def test_a_kind_list_matches_that_kind_only(self, ref: Dictionary) -> None:
+        # The name is a command, so naming it in omit-events is the mistake it looks like
+        # -- even though omit would have found it.
+        with pytest.raises(NamingError, match="omit-events entry .*: matches no event"):
+            plan_for(ref, omit_events=[str(NO_OP)])
+
+    def test_a_pattern_matching_nothing_is_an_error(self, ref: Dictionary) -> None:
+        with pytest.raises(
+            NamingError, match="omit-telemetry entry .*: matches no telemetry channel"
+        ):
+            plan_for(ref, omit_telemetry=["CdhCore.cmdDisp.NothingAtAll"])
+
+    def test_a_near_miss_is_suggested(self, ref: Dictionary) -> None:
+        with pytest.raises(
+            NamingError, match=r"did you mean CdhCore\.cmdDisp\.CMD_NO_OP"
+        ):
+            plan_for(ref, omit_commands=["CdhCore.cmdDisp.CMD_NO_0P"])
+
+    def test_renumbering_is_reported_by_kind(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, omit_commands=[str(NO_OP)])
+        note = next(w for w in plan.warnings if "local ids are dense" in w)
+        assert "1 command(s)" in note
+        assert "event(s)" not in note
+
+    def test_an_override_on_a_name_still_declared_elsewhere_is_not_reported(
+        self, ref: Dictionary
+    ) -> None:
+        # The channel of the same name keeps the override, so there is nothing idle here.
+        plan = plan_for(
+            ref, omit_events=[str(SHARED)], name_overrides={SHARED: "FrameworkRev"}
+        )
+        assert not any("nothing left to rename" in w for w in plan.warnings)
+
+    def test_an_override_on_a_name_dropped_from_every_kind_is_reported(
+        self, ref: Dictionary
+    ) -> None:
+        plan = plan_for(
+            ref,
+            omit_events=[str(SHARED)],
+            omit_telemetry=[str(SHARED)],
+            name_overrides={SHARED: "FrameworkRev"},
+        )
+        assert any("nothing left to rename" in w for w in plan.warnings)
 
 
 class TestOmittedChannels:

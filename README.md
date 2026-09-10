@@ -376,6 +376,31 @@ Two consequences worth knowing:
 A name or pattern matching nothing in the dictionary is an error, not a no-op — the same rule
 the [override tables](#naming-one-thing-at-a-time) follow, for the same reason.
 
+### One kind at a time
+
+`omit` reaches every kind. `omit-commands`, `omit-events` and `omit-telemetry` say the same
+thing about one kind each, and they are matched against the names of that kind alone:
+
+```yaml
+omit-commands:
+  - "*"                       # no ground commands at all; the rest of the interface stays
+omit-events:
+  - "Ref.dpDemo.*"
+omit-telemetry:
+  - "*_PRM_SET"
+```
+
+A member is omitted if either list reaches it, so the four can be mixed — `omit` for the
+instances this deployment has no business seeing, a kind list for a whole kind. Two things
+follow from a kind list being matched per kind:
+
+* `"*"` in `omit-commands` takes out every command and leaves the events and channels alone,
+  where `omit: ["*"]` takes out all three.
+* An entry that matches no member *of that kind* is an error even where the dictionary has a
+  member of another kind by that name. `CdhCore.version.FrameworkVersion` is both an event and
+  a channel in the `Ref` dictionary; naming a command in `omit-events` is a mistake worth
+  hearing about rather than a line that quietly does nothing.
+
 ### Other options
 
 | Option | Effect |

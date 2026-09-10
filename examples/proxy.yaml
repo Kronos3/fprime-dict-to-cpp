@@ -59,6 +59,18 @@ type-names:
 #   - "Ref.dpDemo.*"
 #   - "*_PRM_SET"
 
+# The same, one kind at a time.  These are matched against the names of that kind alone,
+# so "*" here takes out every command and leaves the events and channels be, and an entry
+# that matches no command is an error even where the dictionary has an event by that name.
+# A member is omitted if either list reaches it; omit above is simply the shorthand for
+# saying the same thing in all three.
+# omit-commands:
+#   - "*_PRM_SET"
+# omit-events:
+#   - "Ref.dpDemo.*"
+# omit-telemetry:
+#   - "Ref.dpDemo.*"
+
 # Commands to hook an input port onto.  Invoking the port serializes the remote's opcode
 # and the port's arguments into a command packet and sends it, with no ground command and
 # no command response in the way -- which is how flight software commands the remote.

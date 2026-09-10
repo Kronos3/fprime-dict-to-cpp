@@ -245,6 +245,13 @@ class TestPortTablesAndOmit:
             "omit": ("Ref.dpDemo.*", "CdhCore.cmdDisp.CMD_NO_OP")
         }
 
+    @pytest.mark.parametrize("key", ["omit-commands", "omit-events", "omit-telemetry"])
+    def test_each_kind_has_a_list_of_its_own(
+        self, write, key: str  # type: ignore[no-untyped-def]
+    ) -> None:
+        path = write(f'{key}:\n  - "Ref.dpDemo.*"\n')
+        assert config_file.load(path) == {key.replace("-", "_"): ("Ref.dpDemo.*",)}
+
     def test_an_empty_omit_list_is_accepted(self, write) -> None:  # type: ignore[no-untyped-def]
         assert config_file.load(write("omit: []\n")) == {"omit": ()}
 

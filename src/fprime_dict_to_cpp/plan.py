@@ -14,7 +14,9 @@ component that builds and then silently talks to nobody.
 
 Two configuration keys make a member's *declaration* and its *wire handling* separable,
 which is what lets a proxy be a piece of flight software rather than only a ground
-interface.  :attr:`Config.omit` drops the declaration -- no command, event or channel on
+interface.  :attr:`Config.omit`, and the per-kind :attr:`Config.omit_commands`,
+:attr:`Config.omit_events` and :attr:`Config.omit_telemetry` beside it, drop the
+declaration -- no command, event or channel on
 the component, and so no entry in the target's ground dictionary -- while the four port
 tables hook a typed port onto the same traffic: an input port that forwards a command, an
 output port that fires when an event, a channel or a telemetry packet arrives.  The two
@@ -209,6 +211,27 @@ class Config:
     Local ids are dense over what *remains*, so omitting a member does renumber the ones
     after it.  That is unavoidable -- a declaration is what carries an id -- and it is
     reported as a warning.
+
+    This one applies to all three kinds; :attr:`omit_commands`, :attr:`omit_events` and
+    :attr:`omit_telemetry` say the same thing about one kind each, and a member is omitted
+    if either list reaches it.
+    """
+
+    omit_commands: Sequence[str] = ()
+    """Commands the component does not declare, spelled as :attr:`omit` is.
+
+    Matched against command names only, so ``("*",)`` here takes out every command and
+    leaves the events and channels that share a name with one alone -- and an entry that
+    matches no *command* is an error even if the dictionary has an event by that name.
+    """
+
+    omit_events: Sequence[str] = ()
+    """Events the component does not declare, spelled as :attr:`omit_commands` is."""
+
+    omit_telemetry: Sequence[str] = ()
+    """Telemetry channels the component does not declare, spelled as :attr:`omit_commands` is.
+
+    Omitting a channel does not stop it being *read*: see :func:`_select`.
     """
 
     command_ports: Mapping[QualifiedName, bool | str] = field(default_factory=dict)
@@ -943,18 +966,37 @@ def _member_names(dictionary: Dictionary) -> set[QualifiedName]:
     }
 
 
-def _omitted(dictionary: Dictionary, config: Config) -> frozenset[QualifiedName]:
-    """The members :attr:`Config.omit` names, by name or by glob.
+@dataclass(frozen=True)
+class _Omitted:
+    """What each member kind was asked not to declare, by dictionary name."""
+
+    commands: frozenset[QualifiedName] = frozenset()
+    events: frozenset[QualifiedName] = frozenset()
+    channels: frozenset[QualifiedName] = frozenset()
+
+    def __bool__(self) -> bool:
+        return bool(self.commands or self.events or self.channels)
+
+    @property
+    def every(self) -> frozenset[QualifiedName]:
+        """Every name omitted from some kind, which is not the same as from all of them."""
+        return self.commands | self.events | self.channels
+
+
+def _matched(
+    patterns: Sequence[str],
+    known: Mapping[str, QualifiedName],
+    key: str,
+    noun: str,
+) -> frozenset[QualifiedName]:
+    """The members of ``known`` that ``patterns`` name, by name or by glob.
 
     A pattern that matches nothing is refused rather than ignored; see :attr:`Config.omit`.
     A glob's ``*`` crosses the dots of a dictionary name, so ``Ref.dpDemo.*`` reaches a
-    deeper instance path too and ``*`` on its own omits everything.
+    deeper instance path too and ``*`` on its own omits everything ``known`` holds.
     """
-    if not config.omit:
-        return frozenset()
-    known = {str(name): name for name in _member_names(dictionary)}
     omitted: set[QualifiedName] = set()
-    for pattern in config.omit:
+    for pattern in patterns:
         matched = {
             name
             for spelled, name in known.items()
@@ -963,11 +1005,50 @@ def _omitted(dictionary: Dictionary, config: Config) -> frozenset[QualifiedName]
         if not matched:
             hint = "" if _GLOB.search(pattern) else _suggestion(pattern, known)
             raise NamingError(
-                f"omit entry {pattern!r}: matches no command, event or telemetry channel "
-                f"in the dictionary{hint}"
+                f"{key} entry {pattern!r}: matches no {noun} in the dictionary{hint}"
             )
         omitted |= matched
     return frozenset(omitted)
+
+
+def _omitted(dictionary: Dictionary, config: Config) -> _Omitted:
+    """What the four ``omit`` lists take out, resolved against the dictionary, per kind.
+
+    :attr:`Config.omit` is matched against every member name and then narrowed to each
+    kind, so one entry may reach a command and an event at once and needs to match only
+    one of them; a per-kind list is matched against that kind's names alone, so an entry
+    that names a member of the wrong kind is the error it almost certainly is.
+    """
+    shared = _matched(
+        config.omit,
+        {str(name): name for name in _member_names(dictionary)},
+        "omit",
+        "command, event or telemetry channel",
+    )
+    per_kind = [
+        _matched(
+            patterns,
+            {str(source.name): source.name for source in sources},
+            key,
+            noun,
+        )
+        for patterns, sources, key, noun in (
+            (config.omit_commands, dictionary.commands, "omit-commands", "command"),
+            (config.omit_events, dictionary.events, "omit-events", "event"),
+            (
+                config.omit_telemetry,
+                dictionary.channels,
+                "omit-telemetry",
+                "telemetry channel",
+            ),
+        )
+    ]
+    commands, events, channels = per_kind
+    return _Omitted(
+        commands=commands | (shared & {c.name for c in dictionary.commands}),
+        events=events | (shared & {e.name for e in dictionary.events}),
+        channels=channels | (shared & {c.name for c in dictionary.channels}),
+    )
 
 
 def _select(dictionary: Dictionary, config: Config, warnings: list[str]) -> _Selection:
@@ -983,16 +1064,18 @@ def _select(dictionary: Dictionary, config: Config, warnings: list[str]) -> _Sel
     omitted = _omitted(dictionary, config)
     commands = _kind_selection(
         (command.name for command in dictionary.commands),
-        omitted,
+        omitted.commands,
         _hooked(config.command_ports),
     )
     events = _kind_selection(
         (event.name for event in dictionary.events),
-        omitted,
+        omitted.events,
         _hooked(config.event_ports),
     )
     channel_names = [channel.name for channel in dictionary.channels]
-    reported = _kind_selection(channel_names, omitted, _hooked(config.telemetry_ports))
+    reported = _kind_selection(
+        channel_names, omitted.channels, _hooked(config.telemetry_ports)
+    )
     packets = _kept_packets(dictionary, config, reported.present)
     channels = _KindSelection(
         present=(
@@ -1078,18 +1161,18 @@ def _packet_members(
 def _report_omissions(
     dictionary: Dictionary,
     config: Config,
-    omitted: Collection[QualifiedName],
+    omitted: _Omitted,
     warnings: list[str],
 ) -> None:
     """Say what omission cost: renumbered ids, and any override left with nothing to do."""
     if not omitted:
         return
     counts = [
-        (noun, sum(1 for name in names if name in omitted))
-        for noun, names in (
-            ("command", [c.name for c in dictionary.commands]),
-            ("event", [e.name for e in dictionary.events]),
-            ("channel", [c.name for c in dictionary.channels]),
+        (noun, sum(1 for name in names if name in dropped))
+        for noun, names, dropped in (
+            ("command", [c.name for c in dictionary.commands], omitted.commands),
+            ("event", [e.name for e in dictionary.events], omitted.events),
+            ("channel", [c.name for c in dictionary.channels], omitted.channels),
         )
     ]
     listed = ", ".join(f"{count} {noun}(s)" for noun, count in counts if count)
@@ -1103,10 +1186,18 @@ def _report_omissions(
         | _hooked(config.event_ports)
         | _hooked(config.telemetry_ports)
     )
+    # A name may belong to a member of more than one kind -- the Ref dictionary has an
+    # event and a channel sharing one -- so an override is idle only once every kind that
+    # has such a member has dropped it.
+    still_declared = (
+        ({c.name for c in dictionary.commands} - omitted.commands)
+        | ({e.name for e in dictionary.events} - omitted.events)
+        | ({c.name for c in dictionary.channels} - omitted.channels)
+    )
     idle = sorted(
         str(name)
         for name in config.name_overrides
-        if name in omitted and name not in ported
+        if name in omitted.every and name not in still_declared and name not in ported
     )
     if idle:
         warnings.append(

@@ -25,7 +25,7 @@ from fpptools import Toolchain, find_toolchain  # noqa: E402
 
 from fprime_dict_to_cpp import dictionary  # noqa: E402
 from fprime_dict_to_cpp.cpp import cpp_file_names, render_implementation  # noqa: E402
-from fprime_dict_to_cpp.fpp import render_component, render_types  # noqa: E402
+from fprime_dict_to_cpp.fpp import render_fpp  # noqa: E402
 from fprime_dict_to_cpp.model import ComponentKind, QualifiedName  # noqa: E402
 from fprime_dict_to_cpp.naming import Naming  # noqa: E402
 from fprime_dict_to_cpp.plan import Config, resolve  # noqa: E402
@@ -78,7 +78,7 @@ def generate(
     telemetry_ports: dict[QualifiedName, bool | str] | None = None,
     packet_ports: dict[str, bool | str] | None = None,
     path: Path = DICTIONARY,
-) -> tuple[Config, Path, Path, tuple[str, ...]]:
+) -> tuple[Config, Path, tuple[str, ...]]:
     """Write a component's model and implementation into ``output``.
 
     ``include_prefix`` is left empty so everything lands in one flat directory, which is
@@ -103,12 +103,10 @@ def generate(
     )
     plan = resolve(parsed, config)
     output.mkdir(parents=True, exist_ok=True)
-    types_file = output / f"{component}Types.fpp"
-    model_file = output / f"{component}.fpp"
-    types_file.write_text(render_types(plan))
-    model_file.write_text(render_component(plan))
+    for name, text in render_fpp(plan).items():
+        (output / name).write_text(text)
     render_implementation(plan).write(output)
-    return config, types_file, model_file, plan.warnings
+    return config, output / f"{component}.fpp", plan.warnings
 
 
 def autocode(
@@ -179,13 +177,13 @@ def run(output: Path, *, keep: bool = True, **options: object) -> Result:
     """Generate, autocode and compile, reporting what happened at each step."""
     if output.exists() and not keep:
         shutil.rmtree(output)
-    config, types_file, model_file, warnings = generate(output, **options)  # type: ignore[arg-type]
+    config, model_file, warnings = generate(output, **options)  # type: ignore[arg-type]
     result = Result(directory=output, warnings=warnings)
 
     toolchain = find_toolchain()
     if toolchain is None:
         return result
-    result.autocode = autocode(toolchain, output, types_file, model_file)
+    result.autocode = autocode(toolchain, output, model_file)
     if result.autocode.returncode != 0:
         return result
 

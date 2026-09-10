@@ -58,7 +58,7 @@ namespace RefProxy {
     // cursor and all, so where deserialization starts is not ours to assume.
     data.resetDeser();
 
-    PacketDescriptor _descriptor = 0;
+    ::RefProxy::RefProxy_FwPacketDescriptorType _descriptor = 0;
     const Fw::SerializeStatus _status = data.deserializeTo(_descriptor);
     if (_status != Fw::FW_SERIALIZE_OK) {
       this->recordDecodeError(0, 0, _status);
@@ -95,10 +95,10 @@ namespace RefProxy {
   Fw::SerializeStatus RefProxy ::
     beginCommandPacket(
         Fw::ComBuffer& packet,
-        RemoteOpcode opcode
+        ::RefProxy::RefProxy_FwOpcodeType opcode
     ) const
   {
-    Fw::SerializeStatus status = packet.serializeFrom(static_cast<PacketDescriptor>(DESCRIPTOR_COMMAND));
+    Fw::SerializeStatus status = packet.serializeFrom(static_cast<::RefProxy::RefProxy_FwPacketDescriptorType>(DESCRIPTOR_COMMAND));
     if (status == Fw::FW_SERIALIZE_OK) {
       status = packet.serializeFrom(opcode);
     }

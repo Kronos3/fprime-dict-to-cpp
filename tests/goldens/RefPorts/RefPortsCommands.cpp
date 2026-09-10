@@ -15,7 +15,7 @@ namespace RefPorts {
   void RefPorts ::
     dpDemo_SelectColor_cmdIn_handler(
         FwIndexType portNum,
-        const ::RefPorts::Ref_DpDemo_ColorEnum& color
+        const ::RefPorts::RefPorts_Ref_DpDemo_ColorEnum& color
     )
   {
     (void)portNum;

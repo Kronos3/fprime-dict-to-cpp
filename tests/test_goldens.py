@@ -27,7 +27,7 @@ from conftest import GOLDENS, assert_matches_golden
 
 from fprime_dict_to_cpp.cmake import render_cmake
 from fprime_dict_to_cpp.cpp import cpp_file_names, render_implementation
-from fprime_dict_to_cpp.fpp import render_component, render_types
+from fprime_dict_to_cpp.fpp import render_fpp
 from fprime_dict_to_cpp.model import ComponentKind, Dictionary, QualifiedName
 from fprime_dict_to_cpp.naming import Naming
 from fprime_dict_to_cpp.plan import Config, Plan, resolve
@@ -61,8 +61,10 @@ PORTED_CONFIG = Config(
 #: Every file the ported component owns.  No ``Telemetry.cpp``: nothing declares or hooks a
 #: channel, so there is no channelized telemetry to decode.
 PORTED_FILES = (
-    f"{PORTED}Types.fpp",
     f"{PORTED}.fpp",
+    f"{PORTED}Types.fppi",
+    f"{PORTED}Events.fppi",
+    f"{PORTED}Telemetry.fppi",
     "CMakeLists.txt",
     f"{PORTED}.hpp",
     f"{PORTED}.cpp",
@@ -82,8 +84,11 @@ GOLDEN_CONFIG = Config(
 
 #: Every file the component owns, in the order the CLI reports them.
 GOLDEN_FILES = (
-    f"{COMPONENT}Types.fpp",
     f"{COMPONENT}.fpp",
+    f"{COMPONENT}Types.fppi",
+    f"{COMPONENT}Commands.fppi",
+    f"{COMPONENT}Events.fppi",
+    f"{COMPONENT}Telemetry.fppi",
     "CMakeLists.txt",
     f"{COMPONENT}.hpp",
     f"{COMPONENT}.cpp",
@@ -104,8 +109,7 @@ def golden_plan(ref: Dictionary) -> Plan:
 def rendered(golden_plan: Plan) -> dict[str, str]:
     """Every generated file, rendered once for the module."""
     return {
-        f"{COMPONENT}Types.fpp": render_types(golden_plan),
-        f"{COMPONENT}.fpp": render_component(golden_plan),
+        **render_fpp(golden_plan),
         "CMakeLists.txt": render_cmake(golden_plan),
         **render_implementation(golden_plan).files(cpp_file_names(golden_plan)),
     }
@@ -140,8 +144,7 @@ def ported_plan(ref: Dictionary) -> Plan:
 @pytest.fixture(scope="module")
 def ported(ported_plan: Plan) -> dict[str, str]:
     return {
-        f"{PORTED}Types.fpp": render_types(ported_plan),
-        f"{PORTED}.fpp": render_component(ported_plan),
+        **render_fpp(ported_plan),
         "CMakeLists.txt": render_cmake(ported_plan),
         **render_implementation(ported_plan).files(cpp_file_names(ported_plan)),
     }
@@ -175,27 +178,42 @@ class TestPortedGoldens:
         assert not ported_plan.declared_commands
         assert not ported_plan.declared_events
         assert not ported_plan.declared_channels
-        model = ported[f"{PORTED}.fpp"]
-        assert "async command " not in model
+        assert f"{PORTED}Commands.fppi" not in ported
+        assert "async command " not in "".join(ported.values())
         assert len(ported_plan.ports) == 4
 
 
-def _declarations(model: str, keyword: str) -> int:
+def _declarations(fragment: str, keyword: str) -> int:
     """Count ``keyword`` member declarations, which are not the same-named ports.
 
     ``event port logOut`` and ``telemetry port tlmOut`` open with the same keyword as the
-    members do, so a plain substring count is one too many.
+    members do, so a plain substring count is one too many.  The fragments hold members
+    only, but the pattern stays as it was: it is what makes the count trustworthy.
     """
-    return len(re.findall(rf"^    {keyword} (?!port )\S", model, re.MULTILINE))
+    return len(re.findall(rf"^{keyword} (?!port )\S", fragment, re.MULTILINE))
+
+
+def _golden(name: str) -> str:
+    """One checked-in golden, read from disk."""
+    path = GOLDENS / COMPONENT / name
+    if not path.is_file():
+        pytest.skip("goldens have not been generated yet")
+    return path.read_text()
 
 
 @pytest.fixture(scope="module")
 def golden_model() -> str:
     """The checked-in component model, read from disk."""
-    path = GOLDENS / COMPONENT / f"{COMPONENT}.fpp"
-    if not path.is_file():
-        pytest.skip("goldens have not been generated yet")
-    return path.read_text()
+    return _golden(f"{COMPONENT}.fpp")
+
+
+@pytest.fixture(scope="module")
+def golden_members() -> dict[str, str]:
+    """The checked-in member fragments, by section, read from disk."""
+    return {
+        section: _golden(f"{COMPONENT}{section}.fppi")
+        for section in ("Commands", "Events", "Telemetry")
+    }
 
 
 class TestGoldensAreRealFPrimeCode:
@@ -208,11 +226,37 @@ class TestGoldensAreRealFPrimeCode:
     def test_declares_an_active_component(self, golden_model: str) -> None:
         assert "active component RefProxy {" in golden_model
 
-    def test_mirrors_every_member(self, golden_model: str, golden_plan: Plan) -> None:
-        assert _declarations(golden_model, "async command") == len(golden_plan.commands)
+    def test_includes_every_member_fragment(self, golden_model: str) -> None:
+        # The members are split out, so the component is only right if it pulls all four
+        # fragments back in.
+        for section in ("Types", "Commands", "Events", "Telemetry"):
+            assert f'include "{COMPONENT}{section}.fppi"' in golden_model
+
+    def test_mirrors_every_member(
+        self, golden_members: dict[str, str], golden_plan: Plan
+    ) -> None:
+        commands, events, telemetry = (
+            golden_members["Commands"],
+            golden_members["Events"],
+            golden_members["Telemetry"],
+        )
+        assert _declarations(commands, "async command") == len(golden_plan.commands)
         # Diagnostics add two events and three channels of the proxy's own.
-        assert _declarations(golden_model, "event") == len(golden_plan.events) + 2
-        assert _declarations(golden_model, "telemetry") == len(golden_plan.channels) + 3
+        assert _declarations(events, "event") == len(golden_plan.events) + 2
+        assert _declarations(telemetry, "telemetry") == len(golden_plan.channels) + 3
+
+    def test_declares_the_remote_wire_widths(self) -> None:
+        # The decoders read every packet header at these widths, so the model declares all
+        # five whether or not a mirrored member happens to use one.
+        types = _golden(f"{COMPONENT}Types.fppi")
+        for alias, width in (
+            ("FwPacketDescriptorType", "U16"),
+            ("FwOpcodeType", "U32"),
+            ("FwEventIdType", "U32"),
+            ("FwChanIdType", "U32"),
+            ("FwTlmPacketizeIdType", "U16"),
+        ):
+            assert f"type {alias} = {width}" in types
 
     def test_declares_the_ports_too(self, golden_model: str) -> None:
         for declaration in (
@@ -225,7 +269,7 @@ class TestGoldensAreRealFPrimeCode:
             assert declaration in golden_model
 
     def test_carries_provenance_for_every_member(
-        self, golden_model: str, golden_plan: Plan
+        self, golden_members: dict[str, str], golden_plan: Plan
     ) -> None:
         # Each mirrored member annotates the remote name and id it came from, which is
         # what makes the generated model readable next to the remote's own dictionary.
@@ -234,7 +278,8 @@ class TestGoldensAreRealFPrimeCode:
             + len(golden_plan.events)
             + len(golden_plan.channels)
         )
-        assert golden_model.count("] remote ") == mirrored
+        found = sum(text.count("] remote ") for text in golden_members.values())
+        assert found == mirrored
 
     def test_events_record_the_remote_id_they_match_on(self, golden_plan: Plan) -> None:
         path = GOLDENS / COMPONENT / f"{COMPONENT}Events.cpp"
@@ -252,8 +297,7 @@ class TestGoldenStability:
         # the goldens would churn on every run.
         first = resolve(ref, GOLDEN_CONFIG)
         second = resolve(ref, GOLDEN_CONFIG)
-        assert render_component(first) == render_component(second)
-        assert render_types(first) == render_types(second)
+        assert render_fpp(first) == render_fpp(second)
         assert render_implementation(first).files(
             cpp_file_names(first)
         ) == render_implementation(second).files(cpp_file_names(second))

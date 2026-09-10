@@ -6,7 +6,13 @@ import re
 
 import pytest
 
-from fprime_dict_to_cpp.fpp import escape, is_reserved, render_component, render_types
+from fprime_dict_to_cpp.fpp import (
+    escape,
+    is_reserved,
+    render_component,
+    render_fpp,
+    render_types,
+)
 from fprime_dict_to_cpp.fpp.keywords import RESERVED_WORDS
 from fprime_dict_to_cpp.fpp.writer import FppWriter, annotation_lines, string_literal
 from fprime_dict_to_cpp.model import ComponentKind, Dictionary
@@ -92,16 +98,74 @@ class TestWriter:
         assert writer.render() == "a\n\nb\n"
 
 
+def _model(plan: Plan) -> str:
+    """Every FPP file the plan produces, joined.
+
+    The members live in ``.fppi`` fragments the component includes, so a spot check for one
+    declaration has to look across the set rather than at the model file alone.
+    """
+    return "\n".join(render_fpp(plan).values())
+
+
+class TestFileSet:
+    def test_the_component_includes_a_fragment_per_section(self, plan: Plan) -> None:
+        names = list(render_fpp(plan))
+        assert names[0] == "RefProxy.fpp"
+        assert set(names[1:]) == {
+            "RefProxyTypes.fppi",
+            "RefProxyCommands.fppi",
+            "RefProxyEvents.fppi",
+            "RefProxyTelemetry.fppi",
+        }
+        model = render_fpp(plan)["RefProxy.fpp"]
+        for name in names[1:]:
+            assert f'include "{name}"' in model
+
+    def test_a_fragment_with_nothing_in_it_is_not_written(
+        self, ref: Dictionary
+    ) -> None:
+        # Every command omitted, so there is no commands fragment and nothing includes one.
+        plan = resolve(
+            ref,
+            Config(
+                component="P",
+                namespace="P",
+                naming=Naming.preset("instance"),
+                omit_commands=("*",),
+            ),
+        )
+        files = render_fpp(plan)
+        assert "PCommands.fppi" not in files
+        assert "PCommands.fppi" not in files["P.fpp"]
+
+
 class TestGeneratedModel:
-    def test_types_are_flattened_into_one_module(self, plan: Plan) -> None:
+    def test_types_are_declared_inside_the_component(self, plan: Plan) -> None:
+        # A fragment, so no module or component header of its own -- the component that
+        # includes it supplies both, which is what gives every generated name and file the
+        # RefProxy_ prefix.
         text = render_types(plan)
-        assert "module RefProxy {" in text
+        assert "module RefProxy {" not in text
+        assert 'include "RefProxyTypes.fppi"' in render_fpp(plan)["RefProxy.fpp"]
         # I32 because that is FPP's default enum representation, which the dictionary
         # records rather than leaving implicit.
         assert "enum Ref_DpDemo_ColorEnum: I32 {" in text
         assert "RED = 0" in text
         # An explicitly narrowed representation survives too.
         assert "enum Fw_CmdResponse: U8 {" in text
+
+    def test_the_remote_wire_widths_are_always_declared(self, plan: Plan) -> None:
+        # The decoders read every packet header at these widths, so all five are declared
+        # whether or not a mirrored member happens to use one.
+        text = render_types(plan)
+        for alias, width in (
+            ("FwPacketDescriptorType", "U16"),
+            ("FwOpcodeType", "U32"),
+            ("FwEventIdType", "U32"),
+            ("FwChanIdType", "U32"),
+            ("FwTlmPacketizeIdType", "U16"),
+        ):
+            assert f"type {alias} = {width}" in text
 
     def test_aliases_resolve_to_the_remote_width(self, plan: Plan) -> None:
         text = render_types(plan)
@@ -158,37 +222,36 @@ class TestGeneratedModel:
                 naming=Naming.preset("instance"),
             ),
         )
-        text = render_component(passive)
-        assert "sync input port run" not in text
-        assert "sync input port comIn: Fw.Com" in text
-        assert "guarded command" in text
+        assert "sync input port run" not in render_component(passive)
+        assert "sync input port comIn: Fw.Com" in render_component(passive)
+        assert "guarded command" in _model(passive)
 
     def test_members_carry_local_ids_and_note_the_remote_ones(self, plan: Plan) -> None:
-        text = render_component(plan)
+        text = _model(plan)
         assert "async command dpDemo_SelectColor(" in text
         assert "opcode 0" in text
         assert "remote opcode 2576 (0xA10)" in text
 
     def test_severity_throttle_and_format_are_carried_over(self, plan: Plan) -> None:
-        text = render_component(plan)
+        text = _model(plan)
         assert "severity activity high" in text
         assert "throttle " in text
         assert 'format "Color selected {}"' in text
 
     def test_limits_are_carried_over(self, plan: Plan) -> None:
-        assert "high { red 1 }" in render_component(plan)
+        assert "high { red 1 }" in _model(plan)
 
     def test_update_on_change_is_carried_over(self, plan: Plan) -> None:
-        assert "update on change" in render_component(plan)
+        assert "update on change" in _model(plan)
 
     def test_diagnostics_are_declared(self, plan: Plan) -> None:
-        text = render_component(plan)
+        text = _model(plan)
         assert "telemetry ProxyPacketsDecoded: U32" in text
         assert "event ProxyDecodeError" in text
 
     def test_keyword_parameters_are_escaped(self, plan: Plan) -> None:
         # 59 formal parameters in the Ref dictionary are FPP keywords.
-        text = render_component(plan)
+        text = _model(plan)
         assert "$size: U32" in text or "$size:" in text
         assert re.search(r"\$status\b|\$size\b|\$block\b", text)
 
@@ -204,8 +267,7 @@ class TestGeneratedModel:
                 naming=Naming.preset("instance"),
             ),
         )
-        assert "\t" not in render_component(plan)
-        assert "\t" not in render_types(plan)
+        assert "\t" not in _model(plan)
 
     def test_format_field_counts_match_argument_counts(self, plan: Plan) -> None:
         # fpp-check requires exactly one field per argument.

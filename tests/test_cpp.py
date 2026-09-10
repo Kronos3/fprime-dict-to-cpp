@@ -67,15 +67,29 @@ class TestFileLayout:
 
 
 class TestRemoteWireFormat:
-    def test_header_widths_come_from_the_dictionary(
+    def test_header_widths_are_the_components_own_types(
         self, files: dict[str, str]
     ) -> None:
+        # The widths are declared in the model, so this class defines no aliases of its own
+        # and reads each field through the autocoded type.  Ref's FwPacketDescriptorType is
+        # U16 while the framework default is U32; a proxy has to agree with the sender, and
+        # what pins that is the model, not a using-declaration here.
         header = files["RefProxy.hpp"]
-        # Ref's FwPacketDescriptorType is U16 while the framework default is U32; a
-        # proxy has to agree with the sender.
-        assert "using PacketDescriptor = U16;" in header
-        assert "using RemoteOpcode = U32;" in header
-        assert "using RemotePacketId = U16;" in header
+        assert "using PacketDescriptor" not in header
+        assert "using RemoteOpcode" not in header
+        for alias in (
+            "FwPacketDescriptorType",
+            "FwOpcodeType",
+            "FwEventIdType",
+            "FwChanIdType",
+            "FwTlmPacketizeIdType",
+        ):
+            assert f'#include "RefProxy/RefProxy_{alias}AliasAc.hpp"' in header
+        assert (
+            "::RefProxy::RefProxy_FwOpcodeType opcode" in header
+        ), "beginCommandPacket takes the remote's opcode width"
+        events = files["RefProxyEvents.cpp"]
+        assert "::RefProxy::RefProxy_FwEventIdType _identifier = 0;" in events
 
     def test_descriptor_values_come_from_the_remotes_apid_enum(
         self, files: dict[str, str]
@@ -90,7 +104,9 @@ class TestRemoteWireFormat:
         # Fw::Time::SERIALIZED_SIZE is configuration-dependent, so it must not be a
         # literal even though this dictionary makes it 11.
         assert (
-            "PACKET_HEADER_SIZE = sizeof(PacketDescriptor) + sizeof(RemotePacketId) "
+            "PACKET_HEADER_SIZE = "
+            "sizeof(::RefProxy::RefProxy_FwPacketDescriptorType) + "
+            "sizeof(::RefProxy::RefProxy_FwTlmPacketizeIdType) "
             "+ Fw::Time::SERIALIZED_SIZE," in files["RefProxy.hpp"]
         )
 
@@ -221,7 +237,10 @@ class TestPacketizedDecoding:
     ) -> None:
         packets = files["RefProxyPackets.cpp"]
         assert "_offset += sizeof(U32);" in packets
-        assert "_offset += ::RefProxy::Ref_SignalInfo::SERIALIZED_SIZE;" in packets
+        assert (
+            "_offset += ::RefProxy::RefProxy_Ref_SignalInfo::SERIALIZED_SIZE;"
+            in packets
+        )
 
     def test_one_function_per_packet_layout(
         self, files: dict[str, str], plan: Plan

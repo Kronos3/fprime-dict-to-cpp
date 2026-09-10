@@ -7,12 +7,61 @@
 # Do not edit: regenerate from the dictionary instead.
 
 module RefPorts {
+  # One port type per hooked member, its formals taken from that member.  These are
+  # what lets flight software send a remote command, or hear about a remote event,
+  # without going through the ground interface.
+
+  @ Forwards Ref.dpDemo.SelectColor to the remote deployment.
+  @
+  @ Invoking this serializes remote opcode 2576 (0xA10) and the
+  @ arguments below into a command packet and sends it out comOut.
+  @ A failure to send is reported as ProxyForwardError, since a port carries no
+  @ status back to its caller.
+  @ [Ref.dpDemo.SelectColor]
+  port dpDemo_SelectColor_CmdPort(
+    color: RefPorts.Ref_DpDemo_ColorEnum
+  )
+
+  @ Forwards CdhCore.cmdDisp.CMD_NO_OP to the remote deployment.
+  @
+  @ Invoking this serializes remote opcode 16777216 (0x1000000) and the
+  @ arguments below into a command packet and sends it out comOut.
+  @ A failure to send is reported as ProxyForwardError, since a port carries no
+  @ status back to its caller.
+  @ [CdhCore.cmdDisp.CMD_NO_OP]
+  port cmdDisp_CMD_NO_OP_CmdPort
+
+  @ Invoked when CdhCore.cmdDisp.OpCodeDispatched arrives from the remote deployment.
+  @
+  @ Remote id 16777217 (0x1000001), severity COMMAND.
+  @ [CdhCore.cmdDisp.OpCodeDispatched]
+  port cmdDisp_OpCodeDispatched_EventPort(
+    Opcode: RefPorts.FwOpcodeType, @< The opcode dispatched
+    $port: I32 @< The port dispatched to
+  )
+
+  @ Invoked when telemetry packet RefPackets.SigGen1Info arrives from the remote deployment.
+  @
+  @ Remote id 10 (0xA), 1 channels.  Svc.TlmPacketizer keeps
+  @ one timestamp for the whole packet, so every channel in it shares the last formal.
+  @ [RefPackets.SigGen1Info]
+  port SigGen1Info_PacketPort(
+    SG1_Info: RefPorts.Ref_SignalInfo, @< [Ref.SG1.Info] remote id 268505093
+    timeTag: Fw.Time @< The time the remote reported the packet at
+  )
+
   @ Proxies the Ref.Ref dictionary (0 commands, 0 events, 0 telemetry channels).
   @
   @ Declares none of the remote's interface itself: every command, event and telemetry channel is omitted, so the hooked ports below are what this component is for.
   @ Also unpacks 1 packetized-telemetry packet layouts.
   @ 2 of the remote's commands and 2 of its reports are also hooked onto ports of this component, for flight software rather than for the ground.
   active component RefPorts {
+
+    # ----------------------------------------------------------------------
+    # Types
+    # ----------------------------------------------------------------------
+
+    include "RefPortsTypes.fppi"
 
     # ----------------------------------------------------------------------
     # Ports
@@ -30,7 +79,8 @@ module RefPorts {
     # ----------------------------------------------------------------------
 
     # Ports onto individual members of the remote's interface, asked for by name in
-    # this component's configuration.  Their port types are in RefPortsTypes.fpp.
+    # this component's configuration.  Their port types are declared above, beside
+    # this component.
 
     @ Forwards Ref.dpDemo.SelectColor to the remote deployment.
     @
@@ -89,66 +139,15 @@ module RefPorts {
     time get port timeCaller
 
     # ----------------------------------------------------------------------
-    # Proxy diagnostics
+    # Events
     # ----------------------------------------------------------------------
 
-    # This component's own health, not mirrored from the remote dictionary.
-    # Without it, a link dropping or garbling packets looks the same as a quiet one.
+    include "RefPortsEvents.fppi"
 
-    @ Packets decoded into events or telemetry
-    telemetry ProxyPacketsDecoded: U32 \
-      id 0 \
-      update on change
+    # ----------------------------------------------------------------------
+    # Telemetry
+    # ----------------------------------------------------------------------
 
-    @ Packets that could not be decoded
-    telemetry ProxyDecodeErrors: U32 \
-      id 1 \
-      update on change
-
-    @ Packets whose descriptor or identifier this proxy does not mirror
-    telemetry ProxyPacketsIgnored: U32 \
-      id 2 \
-      update on change
-
-    @ Command packets a hooked input port could not send
-    telemetry ProxyForwardErrors: U32 \
-      id 3 \
-      update on change
-
-    @ A packet from the remote deployment did not deserialize
-    event ProxyDecodeError(
-      descriptor: U32, @< The packet descriptor
-      identifier: U32, @< The event, channel or packet id, if it was read
-      status: I32 @< The Fw::SerializeStatus that stopped the decode
-    ) \
-      severity warning high \
-      id 0 \
-      format "Could not decode packet: descriptor {}, id {}, status {}" \
-      throttle 10
-
-    @ A well-formed packet named something this proxy does not mirror.
-    @ Expected for packet kinds outside this proxy's scope, such as files
-    @ and data products.
-    event ProxyPacketIgnored(
-      descriptor: U32, @< The packet descriptor
-      identifier: U32 @< The event, channel or packet id, if it was read
-    ) \
-      severity diagnostic \
-      id 1 \
-      format "Ignored packet: descriptor {}, id {}" \
-      throttle 10
-
-    @ A hooked input port could not send its command packet.
-    @ A forwarded ground command reports this as a command response instead;
-    @ a port has no caller to answer, which is why this exists.
-    event ProxyForwardError(
-      remoteOpcode: U32, @< The remote opcode that was being forwarded
-      status: I32 @< The Fw::SerializeStatus, or OK if comOut is unconnected
-    ) \
-      severity warning high \
-      id 2 \
-      format "Could not forward remote opcode {} to the remote deployment: status {}" \
-      throttle 10
-
+    include "RefPortsTelemetry.fppi"
   }
 }

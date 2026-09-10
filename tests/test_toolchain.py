@@ -22,10 +22,10 @@ import pytest
 import build_probe
 from fpptools import Toolchain, find_toolchain
 
-from fprime_dict_to_cpp.fpp import render_component, render_types
+from fprime_dict_to_cpp.fpp import render_fpp
 from fprime_dict_to_cpp.model import ComponentKind, Dictionary, QualifiedName
 from fprime_dict_to_cpp.naming import PRESETS, Naming
-from fprime_dict_to_cpp.plan import Config, resolve
+from fprime_dict_to_cpp.plan import Config, Plan, resolve
 
 pytestmark = pytest.mark.integration
 
@@ -36,6 +36,19 @@ def toolchain() -> Toolchain:
     if found is None:
         pytest.skip("no FPP toolchain found; set FPRIME_ROOT to an F Prime checkout")
     return found
+
+
+def _write_model(directory: Path, plan: Plan) -> Path:
+    """Write every FPP file for ``plan`` into ``directory`` and return the model file.
+
+    Only the model file goes to the toolchain: the ``.fppi`` fragments reach it through
+    the ``include`` directives, resolved relative to the file that includes them, which is
+    why they have to be written beside it.
+    """
+    files = render_fpp(plan)
+    for name, text in files.items():
+        (directory / name).write_text(text)
+    return directory / next(iter(files))
 
 
 class TestFppCheck:
@@ -60,12 +73,9 @@ class TestFppCheck:
                 naming=Naming.preset(naming),
             ),
         )
-        types_file = tmp_path / "RefProxyTypes.fpp"
-        model_file = tmp_path / "RefProxy.fpp"
-        types_file.write_text(render_types(plan))
-        model_file.write_text(render_component(plan))
+        model_file = _write_model(tmp_path, plan)
 
-        result = toolchain.check(types_file, model_file)
+        result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_accepts_names_that_were_chosen_rather_than_mangled(
@@ -90,11 +100,8 @@ class TestFppCheck:
                 type_name_overrides={"Ref.DpDemo.ColorEnum": "DemoColor"},
             ),
         )
-        types_file = tmp_path / "RefProxyTypes.fpp"
-        model_file = tmp_path / "RefProxy.fpp"
-        types_file.write_text(render_types(plan))
-        model_file.write_text(render_component(plan))
-        result = toolchain.check(types_file, model_file)
+        model_file = _write_model(tmp_path, plan)
+        result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_accepts_a_nested_namespace(
@@ -109,11 +116,8 @@ class TestFppCheck:
                 naming=Naming.preset("instance"),
             ),
         )
-        types_file = tmp_path / "ProxyTypes.fpp"
-        model_file = tmp_path / "Proxy.fpp"
-        types_file.write_text(render_types(plan))
-        model_file.write_text(render_component(plan))
-        result = toolchain.check(types_file, model_file)
+        model_file = _write_model(tmp_path, plan)
+        result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_accepts_a_component_named_unlike_its_module(
@@ -128,11 +132,8 @@ class TestFppCheck:
                 naming=Naming.preset("source-case"),
             ),
         )
-        types_file = tmp_path / "BridgeTypes.fpp"
-        model_file = tmp_path / "Bridge.fpp"
-        types_file.write_text(render_types(plan))
-        model_file.write_text(render_component(plan))
-        result = toolchain.check(types_file, model_file)
+        model_file = _write_model(tmp_path, plan)
+        result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -173,8 +174,9 @@ class TestAutocodeAndCompile:
         )
         assert result.ok, "\n\n".join(result.failures())
         assert result.compiles, "nothing was compiled"
-        model = (tmp_path / "out" / "RefProxy.fpp").read_text()
-        assert "SelectDemoColor" in model and "DemoColor" in model
+        out = tmp_path / "out"
+        assert "SelectDemoColor" in (out / "RefProxyCommands.fppi").read_text()
+        assert "DemoColor" in (out / "RefProxyTypes.fppi").read_text()
 
     def test_compiles_with_the_optional_parts_turned_off(
         self, toolchain: Toolchain, tmp_path: Path
@@ -273,11 +275,8 @@ class TestHookedPorts:
                 **HOOKS,  # type: ignore[arg-type]
             ),
         )
-        types_file = tmp_path / "RefProxyTypes.fpp"
-        model_file = tmp_path / "RefProxy.fpp"
-        types_file.write_text(render_types(plan))
-        model_file.write_text(render_component(plan))
-        result = toolchain.check(types_file, model_file)
+        model_file = _write_model(tmp_path, plan)
+        result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
     @pytest.mark.parametrize(
@@ -385,12 +384,9 @@ class TestCheckedInGoldens:
         for name in GOLDEN_FILES:
             shutil.copy(source / name, root / name)
 
-        autocode = build_probe.autocode(
-            toolchain,
-            root,
-            root / f"{COMPONENT}Types.fpp",
-            root / f"{COMPONENT}.fpp",
-        )
+        # Only the model file: the .fppi fragments beside it reach the autocoder through
+        # its include directives.
+        autocode = build_probe.autocode(toolchain, root, root / f"{COMPONENT}.fpp")
         assert autocode.returncode == 0, autocode.stdout + autocode.stderr
 
         executable = build_probe.compiler()
@@ -440,10 +436,11 @@ class TestFppFormat:
                 naming=Naming.preset("instance"),
             ),
         )
-        model_file = tmp_path / "RefProxy.fpp"
-        model_file.write_text(render_component(plan))
+        model_file = _write_model(tmp_path, plan)
+        # -i resolves the include specifiers, so the fragments are formatted too and their
+        # declarations reach stdout -- which is what the assertion below reads.
         run = subprocess.run(
-            [str(formatter), str(model_file)],
+            [str(formatter), "-i", str(model_file)],
             capture_output=True,
             text=True,
             check=False,

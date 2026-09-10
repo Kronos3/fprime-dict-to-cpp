@@ -16,7 +16,7 @@ namespace RefProxy {
     decodeChannels(Fw::ComBuffer& _packet)
   {
     while (_packet.getDeserializeSizeLeft() > 0) {
-      RemoteChannelId _identifier = 0;
+      ::RefProxy::RefProxy_FwChanIdType _identifier = 0;
       Fw::SerializeStatus _status = _packet.deserializeTo(_identifier);
       if (_status != Fw::FW_SERIALIZE_OK) {
         this->recordDecodeError(DESCRIPTOR_TELEM, 0, _status);
@@ -60,7 +60,7 @@ namespace RefProxy {
         }
         case 0x1001000: {
           // CdhCore.events.EventsDropped
-          ::RefProxy::FwSizeType _value = 0;
+          ::RefProxy::RefProxy_FwSizeType _value = 0;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_events_EventsDropped(_value, _timeTag);
@@ -96,7 +96,7 @@ namespace RefProxy {
         }
         case 0x1003002: {
           // CdhCore.version.CustomVersion01
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion01(_value, _timeTag);
@@ -105,7 +105,7 @@ namespace RefProxy {
         }
         case 0x1003003: {
           // CdhCore.version.CustomVersion02
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion02(_value, _timeTag);
@@ -114,7 +114,7 @@ namespace RefProxy {
         }
         case 0x1003004: {
           // CdhCore.version.CustomVersion03
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion03(_value, _timeTag);
@@ -123,7 +123,7 @@ namespace RefProxy {
         }
         case 0x1003005: {
           // CdhCore.version.CustomVersion04
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion04(_value, _timeTag);
@@ -132,7 +132,7 @@ namespace RefProxy {
         }
         case 0x1003006: {
           // CdhCore.version.CustomVersion05
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion05(_value, _timeTag);
@@ -141,7 +141,7 @@ namespace RefProxy {
         }
         case 0x1003007: {
           // CdhCore.version.CustomVersion06
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion06(_value, _timeTag);
@@ -150,7 +150,7 @@ namespace RefProxy {
         }
         case 0x1003008: {
           // CdhCore.version.CustomVersion07
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion07(_value, _timeTag);
@@ -159,7 +159,7 @@ namespace RefProxy {
         }
         case 0x1003009: {
           // CdhCore.version.CustomVersion08
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion08(_value, _timeTag);
@@ -168,7 +168,7 @@ namespace RefProxy {
         }
         case 0x100300A: {
           // CdhCore.version.CustomVersion09
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion09(_value, _timeTag);
@@ -177,7 +177,7 @@ namespace RefProxy {
         }
         case 0x100300B: {
           // CdhCore.version.CustomVersion10
-          ::RefProxy::Svc_CustomVersionDb _value;
+          ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_CustomVersion10(_value, _timeTag);
@@ -276,7 +276,7 @@ namespace RefProxy {
         }
         case 0x2000000: {
           // ComCcsds.comQueue.comQueueDepth
-          ::RefProxy::Svc_ComQueueDepth _value;
+          ::RefProxy::RefProxy_Svc_ComQueueDepth _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_comQueue_comQueueDepth(_value, _timeTag);
@@ -285,7 +285,7 @@ namespace RefProxy {
         }
         case 0x2000001: {
           // ComCcsds.comQueue.buffQueueDepth
-          ::RefProxy::Svc_BuffQueueDepth _value;
+          ::RefProxy::RefProxy_Svc_BuffQueueDepth _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_comQueue_buffQueueDepth(_value, _timeTag);
@@ -636,7 +636,7 @@ namespace RefProxy {
         }
         case 0x10005000: {
           // Ref.typeDemo.ChoiceCh
-          ::RefProxy::Ref_Choice _value;
+          ::RefProxy::RefProxy_Ref_Choice _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_ChoiceCh(_value, _timeTag);
@@ -645,7 +645,7 @@ namespace RefProxy {
         }
         case 0x10005001: {
           // Ref.typeDemo.ChoicesCh
-          ::RefProxy::Ref_ManyChoices _value;
+          ::RefProxy::RefProxy_Ref_ManyChoices _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_ChoicesCh(_value, _timeTag);
@@ -654,7 +654,7 @@ namespace RefProxy {
         }
         case 0x10005002: {
           // Ref.typeDemo.ExtraChoicesCh
-          ::RefProxy::Ref_TooManyChoices _value;
+          ::RefProxy::RefProxy_Ref_TooManyChoices _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_ExtraChoicesCh(_value, _timeTag);
@@ -663,7 +663,7 @@ namespace RefProxy {
         }
         case 0x10005003: {
           // Ref.typeDemo.ChoicePairCh
-          ::RefProxy::Ref_ChoicePair _value;
+          ::RefProxy::RefProxy_Ref_ChoicePair _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_ChoicePairCh(_value, _timeTag);
@@ -672,7 +672,7 @@ namespace RefProxy {
         }
         case 0x10005004: {
           // Ref.typeDemo.ChoiceSlurryCh
-          ::RefProxy::Ref_ChoiceSlurry _value;
+          ::RefProxy::RefProxy_Ref_ChoiceSlurry _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_ChoiceSlurryCh(_value, _timeTag);
@@ -708,7 +708,7 @@ namespace RefProxy {
         }
         case 0x10005008: {
           // Ref.typeDemo.FloatSet
-          ::RefProxy::Ref_FloatSet _value;
+          ::RefProxy::RefProxy_Ref_FloatSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_FloatSet(_value, _timeTag);
@@ -717,7 +717,7 @@ namespace RefProxy {
         }
         case 0x10005009: {
           // Ref.typeDemo.ScalarStructCh
-          ::RefProxy::Ref_ScalarStruct _value;
+          ::RefProxy::RefProxy_Ref_ScalarStruct _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_typeDemo_ScalarStructCh(_value, _timeTag);
@@ -897,7 +897,7 @@ namespace RefProxy {
         }
         case 0x10010004: {
           // Ref.sendBuffComp.SendState
-          ::RefProxy::Ref_SendBuff_ActiveState _value;
+          ::RefProxy::RefProxy_Ref_SendBuff_ActiveState _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_sendBuffComp_SendState(_value, _timeTag);
@@ -906,7 +906,7 @@ namespace RefProxy {
         }
         case 0x10011000: {
           // Ref.SG1.Type
-          ::RefProxy::Ref_SignalType _value;
+          ::RefProxy::RefProxy_Ref_SignalType _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG1_Type(_value, _timeTag);
@@ -924,7 +924,7 @@ namespace RefProxy {
         }
         case 0x10011002: {
           // Ref.SG1.PairOutput
-          ::RefProxy::Ref_SignalPair _value;
+          ::RefProxy::RefProxy_Ref_SignalPair _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG1_PairOutput(_value, _timeTag);
@@ -933,7 +933,7 @@ namespace RefProxy {
         }
         case 0x10011003: {
           // Ref.SG1.History
-          ::RefProxy::Ref_SignalSet _value;
+          ::RefProxy::RefProxy_Ref_SignalSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG1_History(_value, _timeTag);
@@ -942,7 +942,7 @@ namespace RefProxy {
         }
         case 0x10011004: {
           // Ref.SG1.PairHistory
-          ::RefProxy::Ref_SignalPairSet _value;
+          ::RefProxy::RefProxy_Ref_SignalPairSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG1_PairHistory(_value, _timeTag);
@@ -951,7 +951,7 @@ namespace RefProxy {
         }
         case 0x10011005: {
           // Ref.SG1.Info
-          ::RefProxy::Ref_SignalInfo _value;
+          ::RefProxy::RefProxy_Ref_SignalInfo _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG1_Info(_value, _timeTag);
@@ -978,7 +978,7 @@ namespace RefProxy {
         }
         case 0x10012000: {
           // Ref.SG2.Type
-          ::RefProxy::Ref_SignalType _value;
+          ::RefProxy::RefProxy_Ref_SignalType _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG2_Type(_value, _timeTag);
@@ -996,7 +996,7 @@ namespace RefProxy {
         }
         case 0x10012002: {
           // Ref.SG2.PairOutput
-          ::RefProxy::Ref_SignalPair _value;
+          ::RefProxy::RefProxy_Ref_SignalPair _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG2_PairOutput(_value, _timeTag);
@@ -1005,7 +1005,7 @@ namespace RefProxy {
         }
         case 0x10012003: {
           // Ref.SG2.History
-          ::RefProxy::Ref_SignalSet _value;
+          ::RefProxy::RefProxy_Ref_SignalSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG2_History(_value, _timeTag);
@@ -1014,7 +1014,7 @@ namespace RefProxy {
         }
         case 0x10012004: {
           // Ref.SG2.PairHistory
-          ::RefProxy::Ref_SignalPairSet _value;
+          ::RefProxy::RefProxy_Ref_SignalPairSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG2_PairHistory(_value, _timeTag);
@@ -1023,7 +1023,7 @@ namespace RefProxy {
         }
         case 0x10012005: {
           // Ref.SG2.Info
-          ::RefProxy::Ref_SignalInfo _value;
+          ::RefProxy::RefProxy_Ref_SignalInfo _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG2_Info(_value, _timeTag);
@@ -1050,7 +1050,7 @@ namespace RefProxy {
         }
         case 0x10013000: {
           // Ref.SG3.Type
-          ::RefProxy::Ref_SignalType _value;
+          ::RefProxy::RefProxy_Ref_SignalType _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG3_Type(_value, _timeTag);
@@ -1068,7 +1068,7 @@ namespace RefProxy {
         }
         case 0x10013002: {
           // Ref.SG3.PairOutput
-          ::RefProxy::Ref_SignalPair _value;
+          ::RefProxy::RefProxy_Ref_SignalPair _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG3_PairOutput(_value, _timeTag);
@@ -1077,7 +1077,7 @@ namespace RefProxy {
         }
         case 0x10013003: {
           // Ref.SG3.History
-          ::RefProxy::Ref_SignalSet _value;
+          ::RefProxy::RefProxy_Ref_SignalSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG3_History(_value, _timeTag);
@@ -1086,7 +1086,7 @@ namespace RefProxy {
         }
         case 0x10013004: {
           // Ref.SG3.PairHistory
-          ::RefProxy::Ref_SignalPairSet _value;
+          ::RefProxy::RefProxy_Ref_SignalPairSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG3_PairHistory(_value, _timeTag);
@@ -1095,7 +1095,7 @@ namespace RefProxy {
         }
         case 0x10013005: {
           // Ref.SG3.Info
-          ::RefProxy::Ref_SignalInfo _value;
+          ::RefProxy::RefProxy_Ref_SignalInfo _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG3_Info(_value, _timeTag);
@@ -1122,7 +1122,7 @@ namespace RefProxy {
         }
         case 0x10014000: {
           // Ref.SG4.Type
-          ::RefProxy::Ref_SignalType _value;
+          ::RefProxy::RefProxy_Ref_SignalType _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG4_Type(_value, _timeTag);
@@ -1140,7 +1140,7 @@ namespace RefProxy {
         }
         case 0x10014002: {
           // Ref.SG4.PairOutput
-          ::RefProxy::Ref_SignalPair _value;
+          ::RefProxy::RefProxy_Ref_SignalPair _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG4_PairOutput(_value, _timeTag);
@@ -1149,7 +1149,7 @@ namespace RefProxy {
         }
         case 0x10014003: {
           // Ref.SG4.History
-          ::RefProxy::Ref_SignalSet _value;
+          ::RefProxy::RefProxy_Ref_SignalSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG4_History(_value, _timeTag);
@@ -1158,7 +1158,7 @@ namespace RefProxy {
         }
         case 0x10014004: {
           // Ref.SG4.PairHistory
-          ::RefProxy::Ref_SignalPairSet _value;
+          ::RefProxy::RefProxy_Ref_SignalPairSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG4_PairHistory(_value, _timeTag);
@@ -1167,7 +1167,7 @@ namespace RefProxy {
         }
         case 0x10014005: {
           // Ref.SG4.Info
-          ::RefProxy::Ref_SignalInfo _value;
+          ::RefProxy::RefProxy_Ref_SignalInfo _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG4_Info(_value, _timeTag);
@@ -1194,7 +1194,7 @@ namespace RefProxy {
         }
         case 0x10015000: {
           // Ref.SG5.Type
-          ::RefProxy::Ref_SignalType _value;
+          ::RefProxy::RefProxy_Ref_SignalType _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG5_Type(_value, _timeTag);
@@ -1212,7 +1212,7 @@ namespace RefProxy {
         }
         case 0x10015002: {
           // Ref.SG5.PairOutput
-          ::RefProxy::Ref_SignalPair _value;
+          ::RefProxy::RefProxy_Ref_SignalPair _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG5_PairOutput(_value, _timeTag);
@@ -1221,7 +1221,7 @@ namespace RefProxy {
         }
         case 0x10015003: {
           // Ref.SG5.History
-          ::RefProxy::Ref_SignalSet _value;
+          ::RefProxy::RefProxy_Ref_SignalSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG5_History(_value, _timeTag);
@@ -1230,7 +1230,7 @@ namespace RefProxy {
         }
         case 0x10015004: {
           // Ref.SG5.PairHistory
-          ::RefProxy::Ref_SignalPairSet _value;
+          ::RefProxy::RefProxy_Ref_SignalPairSet _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG5_PairHistory(_value, _timeTag);
@@ -1239,7 +1239,7 @@ namespace RefProxy {
         }
         case 0x10015005: {
           // Ref.SG5.Info
-          ::RefProxy::Ref_SignalInfo _value;
+          ::RefProxy::RefProxy_Ref_SignalInfo _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_SG5_Info(_value, _timeTag);
@@ -1266,7 +1266,7 @@ namespace RefProxy {
         }
         case 0x10022000: {
           // Ref.recvBuffComp.PktState
-          ::RefProxy::Ref_PacketStat _value;
+          ::RefProxy::RefProxy_Ref_PacketStat _value;
           _status = _packet.deserializeTo(_value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_recvBuffComp_PktState(_value, _timeTag);

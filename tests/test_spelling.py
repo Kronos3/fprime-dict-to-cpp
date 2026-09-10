@@ -34,12 +34,32 @@ class TestTypeNamer:
     def test_cpp_name_is_rooted_at_global_scope(self) -> None:
         # Inside class RefProxy the injected-class-name hides namespace RefProxy, so a
         # relative qualification would resolve into the class and fail to compile.
-        namer = TypeNamer(namespace="RefProxy")
-        assert namer.cpp("Ref.DpDemo.ColorEnum") == "::RefProxy::Ref_DpDemo_ColorEnum"
+        namer = TypeNamer(namespace="RefProxy", component="RefProxy")
+        assert (
+            namer.cpp("Ref.DpDemo.ColorEnum")
+            == "::RefProxy::RefProxy_Ref_DpDemo_ColorEnum"
+        )
+
+    def test_cpp_name_carries_the_component_prefix_fpp_to_cpp_gives_it(self) -> None:
+        # The definitions are component members, so the autocoder prefixes every name and
+        # every generated file with the component's.
+        namer = TypeNamer(namespace="RefProxy", component="RefProxy")
+        assert namer.cpp_name("Ref.DpDemo.ColorEnum") == "RefProxy_Ref_DpDemo_ColorEnum"
+
+    def test_fpp_name_is_bare_inside_the_component_and_qualified_outside_it(
+        self,
+    ) -> None:
+        # A member declaration sits inside the component; a hooked port type cannot, so it
+        # names the same type through the component.
+        namer = TypeNamer(namespace="RefProxy", component="RefProxy")
+        assert namer.fpp("Ref.DpDemo.ColorEnum") == "Ref_DpDemo_ColorEnum"
+        assert (
+            namer.outer_fpp("Ref.DpDemo.ColorEnum") == "RefProxy.Ref_DpDemo_ColorEnum"
+        )
 
     def test_nested_namespace_becomes_a_cpp_scope_chain(self) -> None:
-        namer = TypeNamer(namespace="Ref.Proxy")
-        assert namer.cpp("A.B") == "::Ref::Proxy::A_B"
+        namer = TypeNamer(namespace="Ref.Proxy", component="Proxy")
+        assert namer.cpp("A.B") == "::Ref::Proxy::Proxy_A_B"
 
     def test_prefix_is_applied(self) -> None:
         namer = TypeNamer(namespace="P", prefix="Rp_")
@@ -148,13 +168,13 @@ class TestCppSpelling:
     def test_class_types_go_by_const_reference(self, plan: Plan) -> None:
         assert (
             plan.spelling.cpp_param(COLOR, Context.COMMAND)
-            == "const ::RefProxy::Ref_DpDemo_ColorEnum&"
+            == "const ::RefProxy::RefProxy_Ref_DpDemo_ColorEnum&"
         )
 
     def test_alias_to_a_scalar_goes_by_value(self, plan: Plan) -> None:
         # fpp-to-cpp emits a using-alias for a scalar, and passes it by value.
         assert plan.spelling.cpp_param(SIZE_ALIAS, Context.EVENT) == (
-            "::RefProxy::FwSizeType"
+            "::RefProxy::RefProxy_FwSizeType"
         )
 
     def test_alias_to_a_string_goes_by_reference(self, plan: Plan) -> None:
@@ -187,7 +207,7 @@ class TestSerializedSize:
     def test_enum_array_and_struct(self, plan: Plan) -> None:
         assert (
             plan.spelling.serialized_size(COLOR)
-            == "::RefProxy::Ref_DpDemo_ColorEnum::SERIALIZED_SIZE"
+            == "::RefProxy::RefProxy_Ref_DpDemo_ColorEnum::SERIALIZED_SIZE"
         )
 
     def test_alias_to_a_scalar_uses_sizeof_on_the_generated_alias(
@@ -198,7 +218,7 @@ class TestSerializedSize:
         # expression tied to the type the code actually uses.
         assert (
             plan.spelling.serialized_size(SIZE_ALIAS)
-            == "sizeof(::RefProxy::FwSizeType)"
+            == "sizeof(::RefProxy::RefProxy_FwSizeType)"
         )
 
     def test_alias_to_a_string_asks_the_generated_type(self, plan: Plan) -> None:
@@ -207,7 +227,7 @@ class TestSerializedSize:
         # would disagree with the slot the sender actually left.
         assert (
             plan.spelling.serialized_size(STRING_ALIAS)
-            == "::RefProxy::Ref_DpDemo_StringAlias::SERIALIZED_SIZE"
+            == "::RefProxy::RefProxy_Ref_DpDemo_StringAlias::SERIALIZED_SIZE"
         )
 
 

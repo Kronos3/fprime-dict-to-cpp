@@ -15,7 +15,7 @@ namespace RefPorts {
   void RefPorts ::
     decodeTelemetryPacket(Fw::ComBuffer& _packet)
   {
-    RemotePacketId _identifier = 0;
+    ::RefPorts::RefPorts_FwTlmPacketizeIdType _identifier = 0;
     Fw::SerializeStatus _status = _packet.deserializeTo(_identifier);
     if (_status != Fw::FW_SERIALIZE_OK) {
       this->recordDecodeError(DESCRIPTOR_PACKETIZED_TLM, 0, _status);
@@ -54,7 +54,7 @@ namespace RefPorts {
     Fw::SerializeStatus _status = Fw::FW_SERIALIZE_OK;
     // Declared here rather than per channel because SigGen1Info_packetOut
     // carries the whole packet in one call.
-    ::RefPorts::Ref_SignalInfo _value0;
+    ::RefPorts::RefPorts_Ref_SignalInfo _value0;
 
     // Ref.SG1.Info
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -63,7 +63,7 @@ namespace RefPorts {
         _status = _packet.deserializeTo(_value0);
       }
     }
-    _offset += ::RefPorts::Ref_SignalInfo::SERIALIZED_SIZE;
+    _offset += ::RefPorts::RefPorts_Ref_SignalInfo::SERIALIZED_SIZE;
 
     // Every slot read, so the packet can go out whole.  A partial read leaves
     // the status set, and a caller given half a packet is worse than one given

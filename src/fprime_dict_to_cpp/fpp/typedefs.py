@@ -1,4 +1,4 @@
-"""Emitting the remote's type definitions, re-rooted into the proxy's module.
+"""Emitting the remote's type definitions, re-rooted into the proxy's component.
 
 Defaults are deliberately omitted.  A default value in the dictionary is a literal
 tree that may name enum constants by their *original* qualified path
@@ -7,15 +7,17 @@ in every nested position.  A default affects neither the wire format nor anythin
 proxy does with a value, so the cost is not worth paying; FPP falls back to each type's
 zero value.
 
-The port types a hooked port needs are emitted here too.  They are types, they belong in
-the same module, and keeping them out of ``<Component>.fpp`` leaves that file as the
-component and nothing else.
+The definitions are component members rather than module members, which is what gives
+every generated name and file a ``<Component>_`` prefix and so keeps them from colliding
+with a project that already has a type of that name.  It is also what lets the generated
+C++ name the remote's ``FwOpcodeType`` as ``RefProxy_FwOpcodeType`` instead of aliasing
+it: the wire widths are declared in the model, beside the members they apply to.
 """
 
 from __future__ import annotations
 
 from ..model import AliasDef, ArrayDef, EnumDef, StructDef, TypeDef
-from ..plan import Plan, PortPlan
+from ..plan import Plan
 from ..spelling import safe_identifier
 from .keywords import escape
 from .writer import FppWriter, string_literal
@@ -24,58 +26,38 @@ __all__ = ["render_types"]
 
 
 def render_types(plan: Plan) -> str:
-    """Render the ``<Component>Types.fpp`` contents for ``plan``."""
+    """Render the ``<Component>Types.fppi`` contents for ``plan``.
+
+    An include fragment, not a file of its own: everything here is declared inside the
+    component, so it has no module or component header to open.
+    """
     writer = FppWriter()
     _preamble(writer, plan)
-    with writer.module(plan.config.namespace):
-        writer.comment(
-            "Type definitions mirrored from the remote dictionary.  Names are the\n"
-            "remote's qualified names flattened with '_', because fpp-to-cpp derives a\n"
-            "generated file name from a type's leaf name and rejects duplicates.\n"
-            "\n"
-            "Aliases resolve to the width the REMOTE serialized, which is the point of\n"
-            "re-declaring them: the local platform's FwSizeType may differ."
-        )
-        for definition in plan.spelling.type_defs():
-            writer.blank()
-            _definition(writer, plan, definition)
-        _ports(writer, plan)
-    return writer.render()
 
-
-def _ports(writer: FppWriter, plan: Plan) -> None:
-    """The port types the hooked ports take.
-
-    One per hooked member rather than one shared type per kind: the formals *are* the
-    member's, so a port that mirrors a command's arguments cannot be handed the wrong ones.
-    """
-    ports = plan.ports
-    if not ports:
-        return
-    writer.banner("Hooked port types")
+    writer.banner("Remote wire format")
     writer.comment(
-        "One port type per hooked member, its formals taken from that member.  These are\n"
-        "what lets flight software send a remote command, or hear about a remote event,\n"
-        "without going through the ground interface."
+        "The widths the remote deployment serialized its packet headers with.\n"
+        "Declared whether or not a mirrored member uses one, because the decoders read\n"
+        "every header field at these widths -- deliberately not at the local\n"
+        "FwOpcodeType and friends, since a proxy has to agree with the sender."
     )
-    for port in ports:
+    for alias in plan.spelling.wire_type_defs():
         writer.blank()
-        _port(writer, port)
+        _alias(writer, plan, alias)
 
-
-def _port(writer: FppWriter, port: PortPlan) -> None:
-    params = []
-    for param in port.params:
-        text = f"{escape(param.name)}: {param.fpp}"
-        if param.annotation:
-            text = f"{text} @< {' '.join(param.annotation.split())}"
-        params.append(text)
-    writer.declaration(
-        f"port {escape(port.type_name)}",
-        params,
-        (),
-        annotation=f"{port.annotation}\n[{port.origin}]",
+    writer.banner("Mirrored types")
+    writer.comment(
+        "Type definitions mirrored from the remote dictionary.  Names are the\n"
+        "remote's qualified names flattened with '_', because fpp-to-cpp derives a\n"
+        "generated file name from a type's leaf name and rejects duplicates.\n"
+        "\n"
+        "Aliases resolve to the width the REMOTE serialized, which is the point of\n"
+        "re-declaring them: the local platform's FwSizeType may differ."
     )
+    for definition in plan.spelling.type_defs():
+        writer.blank()
+        _definition(writer, plan, definition)
+    return writer.render()
 
 
 def _preamble(writer: FppWriter, plan: Plan) -> None:
@@ -83,13 +65,14 @@ def _preamble(writer: FppWriter, plan: Plan) -> None:
     writer.comment(
         f"Types used by {plan.config.component}, generated by fprime-dict-to-cpp.\n"
         f"\n"
+        f"Included by {plan.config.component}.fpp, inside the component itself.\n"
+        f"\n"
         f"Source deployment: {metadata.deployment_name}\n"
         f"Framework version: {metadata.framework_version}\n"
         f"Dictionary spec:   {metadata.spec_version}\n"
         f"\n"
         f"Do not edit: regenerate from the dictionary instead."
     )
-    writer.blank()
 
 
 def _definition(writer: FppWriter, plan: Plan, definition: TypeDef) -> None:

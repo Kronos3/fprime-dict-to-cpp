@@ -10,7 +10,7 @@ from fprime_cpp_codegen import ClangFormat, Formatter
 from . import dictionary
 from .cmake import render_cmake
 from .cpp import render_implementation
-from .fpp import render_component, render_types
+from .fpp import render_fpp
 from .model import Dictionary
 from .plan import Config, Plan, resolve
 
@@ -104,16 +104,12 @@ def generate_from_plan(
 
     directory = Path(output)
     directory.mkdir(parents=True, exist_ok=True)
-    component = config.component
 
     written: list[Path] = []
     unchanged: list[Path] = []
     kept: list[Path] = []
 
-    for name, text in (
-        (f"{component}Types.fpp", render_types(plan)),
-        (f"{component}.fpp", render_component(plan)),
-    ):
+    for name, text in render_fpp(plan).items():
         _write(directory / name, text, written, unchanged)
 
     # An existing CMakeLists.txt that says something else was edited on purpose, so it

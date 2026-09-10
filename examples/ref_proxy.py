@@ -17,7 +17,7 @@ from pathlib import Path
 
 from fprime_dict_to_cpp import dictionary
 from fprime_dict_to_cpp.cpp import cpp_file_names, render_implementation
-from fprime_dict_to_cpp.fpp import render_component, render_types
+from fprime_dict_to_cpp.fpp import render_fpp
 from fprime_dict_to_cpp.generate import generate_from_plan
 from fprime_dict_to_cpp.model import ComponentKind
 from fprime_dict_to_cpp.naming import Naming, Qualification, Style
@@ -55,7 +55,7 @@ def main() -> int:
     print(f"  events    {len(plan.events):4d}")
     print(f"  channels  {len(plan.channels):4d}")
     print(f"  packets   {len(plan.packets):4d}")
-    print(f"  types     {len(plan.spelling.type_defs()):4d}")
+    print(f"  types     {len(plan.spelling.all_type_defs()):4d}")
     for warning in plan.warnings:
         print(f"  warning: {warning}")
 
@@ -81,8 +81,7 @@ def main() -> int:
     # No output directory: show what the emitters produce without writing anything.
     print("\nrendered sizes:")
     documents = {
-        f"{config.component}Types.fpp": render_types(plan),
-        f"{config.component}.fpp": render_component(plan),
+        **render_fpp(plan),
         **render_implementation(plan).files(cpp_file_names(plan)),
     }
     for name, text in documents.items():

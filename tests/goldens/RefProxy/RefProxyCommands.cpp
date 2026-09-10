@@ -16,7 +16,7 @@ namespace RefProxy {
     dpDemo_SelectColor_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_DpDemo_ColorEnum& color
+        const ::RefProxy::RefProxy_Ref_DpDemo_ColorEnum& color
     )
   {
     Fw::ComBuffer _packet;
@@ -31,9 +31,9 @@ namespace RefProxy {
     dpDemo_Dp_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_DpDemo_DpReqType& reqType,
+        const ::RefProxy::RefProxy_Ref_DpDemo_DpReqType& reqType,
         U32 priority,
-        const ::RefProxy::Fw_DpCfg_ProcType& proc
+        const ::RefProxy::RefProxy_Fw_DpCfg_ProcType& proc
     )
   {
     Fw::ComBuffer _packet;
@@ -114,8 +114,8 @@ namespace RefProxy {
     events_SET_EVENT_FILTER_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_EventManager_FilterSeverity& filterLevel,
-        const ::RefProxy::Svc_EventManager_Enabled& filterEnabled
+        const ::RefProxy::RefProxy_Svc_EventManager_FilterSeverity& filterLevel,
+        const ::RefProxy::RefProxy_Svc_EventManager_Enabled& filterEnabled
     )
   {
     Fw::ComBuffer _packet;
@@ -133,8 +133,8 @@ namespace RefProxy {
     events_SET_ID_FILTER_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        ::RefProxy::FwEventIdType ID,
-        const ::RefProxy::Svc_EventManager_Enabled& idFilterEnabled
+        ::RefProxy::RefProxy_FwEventIdType ID,
+        const ::RefProxy::RefProxy_Svc_EventManager_Enabled& idFilterEnabled
     )
   {
     Fw::ComBuffer _packet;
@@ -163,7 +163,7 @@ namespace RefProxy {
     health_HLTH_ENABLE_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Fw_Enabled& enable
+        const ::RefProxy::RefProxy_Fw_Enabled& enable
     )
   {
     Fw::ComBuffer _packet;
@@ -179,7 +179,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         const Fw::CmdStringArg& entry,
-        const ::RefProxy::Fw_Enabled& enable
+        const ::RefProxy::RefProxy_Fw_Enabled& enable
     )
   {
     Fw::ComBuffer _packet;
@@ -220,7 +220,7 @@ namespace RefProxy {
     version_ENABLE_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_VersionEnabled& enable
+        const ::RefProxy::RefProxy_Svc_VersionEnabled& enable
     )
   {
     Fw::ComBuffer _packet;
@@ -235,7 +235,7 @@ namespace RefProxy {
     version_VERSION_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_VersionType& version_type
+        const ::RefProxy::RefProxy_Svc_VersionType& version_type
     )
   {
     Fw::ComBuffer _packet;
@@ -250,8 +250,8 @@ namespace RefProxy {
     comQueue_FLUSH_QUEUE_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_QueueType& queueType,
-        ::RefProxy::FwIndexType indexType
+        const ::RefProxy::RefProxy_Svc_QueueType& queueType,
+        ::RefProxy::RefProxy_FwIndexType indexType
     )
   {
     Fw::ComBuffer _packet;
@@ -280,9 +280,9 @@ namespace RefProxy {
     comQueue_SET_QUEUE_PRIORITY_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_QueueType& queueType,
-        ::RefProxy::FwIndexType indexType,
-        ::RefProxy::FwIndexType newPriority
+        const ::RefProxy::RefProxy_Svc_QueueType& queueType,
+        ::RefProxy::RefProxy_FwIndexType indexType,
+        ::RefProxy::RefProxy_FwIndexType newPriority
     )
   {
     Fw::ComBuffer _packet;
@@ -314,7 +314,7 @@ namespace RefProxy {
     dpCat_START_XMIT_CATALOG_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Fw_Wait& wait,
+        const ::RefProxy::RefProxy_Fw_Wait& wait,
         bool remainActive
     )
   {
@@ -377,7 +377,7 @@ namespace RefProxy {
     dpBufferAccumulator_BA_SetMode_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_BufferAccumulator_OpState& mode
+        const ::RefProxy::RefProxy_Svc_BufferAccumulator_OpState& mode
     )
   {
     Fw::ComBuffer _packet;
@@ -393,7 +393,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         U32 numToDrain,
-        const ::RefProxy::Svc_BufferAccumulator_BlockMode& blockMode
+        const ::RefProxy::RefProxy_Svc_BufferAccumulator_BlockMode& blockMode
     )
   {
     Fw::ComBuffer _packet;
@@ -612,7 +612,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         const Fw::CmdStringArg& fileName,
-        const ::RefProxy::Svc_PrmDb_Merge& merge
+        const ::RefProxy::RefProxy_Svc_PrmDb_Merge& merge
     )
   {
     Fw::ComBuffer _packet;
@@ -652,7 +652,7 @@ namespace RefProxy {
     typeDemo_CHOICE_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_Choice& choice
+        const ::RefProxy::RefProxy_Ref_Choice& choice
     )
   {
     Fw::ComBuffer _packet;
@@ -667,7 +667,7 @@ namespace RefProxy {
     typeDemo_CHOICE_PRM_PRM_SET_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_Choice& val
+        const ::RefProxy::RefProxy_Ref_Choice& val
     )
   {
     Fw::ComBuffer _packet;
@@ -693,7 +693,7 @@ namespace RefProxy {
     typeDemo_CHOICES_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ManyChoices& choices
+        const ::RefProxy::RefProxy_Ref_ManyChoices& choices
     )
   {
     Fw::ComBuffer _packet;
@@ -709,7 +709,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         U8 repeat,
-        const ::RefProxy::Ref_ManyChoices& choices,
+        const ::RefProxy::RefProxy_Ref_ManyChoices& choices,
         U8 repeat_max
     )
   {
@@ -731,7 +731,7 @@ namespace RefProxy {
     typeDemo_CHOICES_PRM_PRM_SET_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ManyChoices& val
+        const ::RefProxy::RefProxy_Ref_ManyChoices& val
     )
   {
     Fw::ComBuffer _packet;
@@ -757,7 +757,7 @@ namespace RefProxy {
     typeDemo_EXTRA_CHOICES_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_TooManyChoices& choices
+        const ::RefProxy::RefProxy_Ref_TooManyChoices& choices
     )
   {
     Fw::ComBuffer _packet;
@@ -773,7 +773,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         U8 repeat,
-        const ::RefProxy::Ref_TooManyChoices& choices,
+        const ::RefProxy::RefProxy_Ref_TooManyChoices& choices,
         U8 repeat_max
     )
   {
@@ -795,7 +795,7 @@ namespace RefProxy {
     typeDemo_EXTRA_CHOICES_PRM_PRM_SET_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ManyChoices& val
+        const ::RefProxy::RefProxy_Ref_ManyChoices& val
     )
   {
     Fw::ComBuffer _packet;
@@ -821,7 +821,7 @@ namespace RefProxy {
     typeDemo_CHOICE_PAIR_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ChoicePair& choices
+        const ::RefProxy::RefProxy_Ref_ChoicePair& choices
     )
   {
     Fw::ComBuffer _packet;
@@ -837,7 +837,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         U8 repeat,
-        const ::RefProxy::Ref_ChoicePair& choices,
+        const ::RefProxy::RefProxy_Ref_ChoicePair& choices,
         U8 repeat_max
     )
   {
@@ -859,7 +859,7 @@ namespace RefProxy {
     typeDemo_CHOICE_PAIR_PRM_PRM_SET_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ChoicePair& val
+        const ::RefProxy::RefProxy_Ref_ChoicePair& val
     )
   {
     Fw::ComBuffer _packet;
@@ -885,7 +885,7 @@ namespace RefProxy {
     typeDemo_GLUTTON_OF_CHOICE_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ChoiceSlurry& choices
+        const ::RefProxy::RefProxy_Ref_ChoiceSlurry& choices
     )
   {
     Fw::ComBuffer _packet;
@@ -901,7 +901,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         U8 repeat,
-        const ::RefProxy::Ref_ChoiceSlurry& choices,
+        const ::RefProxy::RefProxy_Ref_ChoiceSlurry& choices,
         U8 repeat_max
     )
   {
@@ -923,7 +923,7 @@ namespace RefProxy {
     typeDemo_GLUTTON_OF_CHOICE_PRM_PRM_SET_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ChoiceSlurry& val
+        const ::RefProxy::RefProxy_Ref_ChoiceSlurry& val
     )
   {
     Fw::ComBuffer _packet;
@@ -971,7 +971,7 @@ namespace RefProxy {
     typeDemo_SEND_SCALARS_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_ScalarStruct& scalar_input
+        const ::RefProxy::RefProxy_Ref_ScalarStruct& scalar_input
     )
   {
     Fw::ComBuffer _packet;
@@ -987,7 +987,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         const Fw::CmdStringArg& fileName,
-        const ::RefProxy::Svc_BlockState& block
+        const ::RefProxy::RefProxy_Svc_BlockState& block
     )
   {
     Fw::ComBuffer _packet;
@@ -1087,7 +1087,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         const Fw::CmdStringArg& fileName,
-        const ::RefProxy::Svc_BlockState& block
+        const ::RefProxy::RefProxy_Svc_BlockState& block
     )
   {
     Fw::ComBuffer _packet;
@@ -1151,7 +1151,7 @@ namespace RefProxy {
         FwOpcodeType opCode,
         U32 cmdSeq,
         const Fw::CmdStringArg& module,
-        const ::RefProxy::Svc_BlockState& block
+        const ::RefProxy::RefProxy_Svc_BlockState& block
     )
   {
     Fw::ComBuffer _packet;
@@ -1239,7 +1239,7 @@ namespace RefProxy {
     wasmSeq_INSTRUCTION_FUEL_PRM_SET_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        ::RefProxy::FwSizeType val
+        ::RefProxy::RefProxy_FwSizeType val
     )
   {
     Fw::ComBuffer _packet;
@@ -1400,7 +1400,7 @@ namespace RefProxy {
         U32 Frequency,
         F32 Amplitude,
         F32 Phase,
-        const ::RefProxy::Ref_SignalType& SigType
+        const ::RefProxy::RefProxy_Ref_SignalType& SigType
     )
   {
     Fw::ComBuffer _packet;
@@ -1446,7 +1446,7 @@ namespace RefProxy {
     SG1_Dp_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+        const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
         U32 records,
         U32 priority
     )
@@ -1472,7 +1472,7 @@ namespace RefProxy {
         U32 Frequency,
         F32 Amplitude,
         F32 Phase,
-        const ::RefProxy::Ref_SignalType& SigType
+        const ::RefProxy::RefProxy_Ref_SignalType& SigType
     )
   {
     Fw::ComBuffer _packet;
@@ -1518,7 +1518,7 @@ namespace RefProxy {
     SG2_Dp_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+        const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
         U32 records,
         U32 priority
     )
@@ -1544,7 +1544,7 @@ namespace RefProxy {
         U32 Frequency,
         F32 Amplitude,
         F32 Phase,
-        const ::RefProxy::Ref_SignalType& SigType
+        const ::RefProxy::RefProxy_Ref_SignalType& SigType
     )
   {
     Fw::ComBuffer _packet;
@@ -1590,7 +1590,7 @@ namespace RefProxy {
     SG3_Dp_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+        const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
         U32 records,
         U32 priority
     )
@@ -1616,7 +1616,7 @@ namespace RefProxy {
         U32 Frequency,
         F32 Amplitude,
         F32 Phase,
-        const ::RefProxy::Ref_SignalType& SigType
+        const ::RefProxy::RefProxy_Ref_SignalType& SigType
     )
   {
     Fw::ComBuffer _packet;
@@ -1662,7 +1662,7 @@ namespace RefProxy {
     SG4_Dp_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+        const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
         U32 records,
         U32 priority
     )
@@ -1688,7 +1688,7 @@ namespace RefProxy {
         U32 Frequency,
         F32 Amplitude,
         F32 Phase,
-        const ::RefProxy::Ref_SignalType& SigType
+        const ::RefProxy::RefProxy_Ref_SignalType& SigType
     )
   {
     Fw::ComBuffer _packet;
@@ -1734,7 +1734,7 @@ namespace RefProxy {
     SG5_Dp_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+        const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
         U32 records,
         U32 priority
     )
@@ -1809,7 +1809,7 @@ namespace RefProxy {
     systemResources_ENABLE_cmdHandler(
         FwOpcodeType opCode,
         U32 cmdSeq,
-        const ::RefProxy::Svc_SystemResourceEnabled& enable
+        const ::RefProxy::RefProxy_Svc_SystemResourceEnabled& enable
     )
   {
     Fw::ComBuffer _packet;

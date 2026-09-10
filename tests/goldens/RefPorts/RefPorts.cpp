@@ -59,7 +59,7 @@ namespace RefPorts {
     // cursor and all, so where deserialization starts is not ours to assume.
     data.resetDeser();
 
-    PacketDescriptor _descriptor = 0;
+    ::RefPorts::RefPorts_FwPacketDescriptorType _descriptor = 0;
     const Fw::SerializeStatus _status = data.deserializeTo(_descriptor);
     if (_status != Fw::FW_SERIALIZE_OK) {
       this->recordDecodeError(0, 0, _status);
@@ -92,10 +92,10 @@ namespace RefPorts {
   Fw::SerializeStatus RefPorts ::
     beginCommandPacket(
         Fw::ComBuffer& packet,
-        RemoteOpcode opcode
+        ::RefPorts::RefPorts_FwOpcodeType opcode
     ) const
   {
-    Fw::SerializeStatus status = packet.serializeFrom(static_cast<PacketDescriptor>(DESCRIPTOR_COMMAND));
+    Fw::SerializeStatus status = packet.serializeFrom(static_cast<::RefPorts::RefPorts_FwPacketDescriptorType>(DESCRIPTOR_COMMAND));
     if (status == Fw::FW_SERIALIZE_OK) {
       status = packet.serializeFrom(opcode);
     }

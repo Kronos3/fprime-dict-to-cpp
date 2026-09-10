@@ -9,6 +9,12 @@
 
 #include "RefProxy/RefProxyComponentAc.hpp"
 
+#include "RefProxy/RefProxy_FwPacketDescriptorTypeAliasAc.hpp"
+#include "RefProxy/RefProxy_FwOpcodeTypeAliasAc.hpp"
+#include "RefProxy/RefProxy_FwEventIdTypeAliasAc.hpp"
+#include "RefProxy/RefProxy_FwChanIdTypeAliasAc.hpp"
+#include "RefProxy/RefProxy_FwTlmPacketizeIdTypeAliasAc.hpp"
+
 namespace RefProxy {
 
   //! Proxies the Ref.Ref dictionary.
@@ -26,20 +32,6 @@ namespace RefProxy {
       // Remote wire format
       // ----------------------------------------------------------------------
 
-      //! Widths the remote deployment serialized its packet headers with, taken
-      //! from its dictionary.  Deliberately not the local FwOpcodeType and friends:
-      //! a proxy has to agree with the sender, not with its own platform.
-
-      using PacketDescriptor = U16;
-
-      using RemoteOpcode = U32;
-
-      using RemoteEventId = U32;
-
-      using RemoteChannelId = U32;
-
-      using RemotePacketId = U16;
-
       //! Packet descriptors, valued as the remote's ComCfg.Apid defines them.
       //! Those values are project-configurable, so the local enum is not necessarily
       //! the same one.
@@ -52,7 +44,7 @@ namespace RefProxy {
 
       enum {
         //! Bytes before the first channel slot of a packetized telemetry packet
-        PACKET_HEADER_SIZE = sizeof(PacketDescriptor) + sizeof(RemotePacketId) + Fw::Time::SERIALIZED_SIZE,
+        PACKET_HEADER_SIZE = sizeof(::RefProxy::RefProxy_FwPacketDescriptorType) + sizeof(::RefProxy::RefProxy_FwTlmPacketizeIdType) + Fw::Time::SERIALIZED_SIZE,
       };
 
     public:
@@ -96,7 +88,7 @@ namespace RefProxy {
       void dpDemo_SelectColor_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_DpDemo_ColorEnum& color
+          const ::RefProxy::RefProxy_Ref_DpDemo_ColorEnum& color
       ) override;
 
       //! Forward Ref.dpDemo.Dp to the remote deployment
@@ -107,9 +99,9 @@ namespace RefProxy {
       void dpDemo_Dp_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_DpDemo_DpReqType& reqType,
+          const ::RefProxy::RefProxy_Ref_DpDemo_DpReqType& reqType,
           U32 priority,
-          const ::RefProxy::Fw_DpCfg_ProcType& proc
+          const ::RefProxy::RefProxy_Fw_DpCfg_ProcType& proc
       ) override;
 
       //! Forward CdhCore.cmdDisp.CMD_NO_OP to the remote deployment
@@ -164,8 +156,8 @@ namespace RefProxy {
       void events_SET_EVENT_FILTER_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_EventManager_FilterSeverity& filterLevel, //!< Filter level
-          const ::RefProxy::Svc_EventManager_Enabled& filterEnabled //!< Filter state
+          const ::RefProxy::RefProxy_Svc_EventManager_FilterSeverity& filterLevel, //!< Filter level
+          const ::RefProxy::RefProxy_Svc_EventManager_Enabled& filterEnabled //!< Filter state
       ) override;
 
       //! Forward CdhCore.events.SET_ID_FILTER to the remote deployment
@@ -176,8 +168,8 @@ namespace RefProxy {
       void events_SET_ID_FILTER_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          ::RefProxy::FwEventIdType ID,
-          const ::RefProxy::Svc_EventManager_Enabled& idFilterEnabled //!< ID filter state
+          ::RefProxy::RefProxy_FwEventIdType ID,
+          const ::RefProxy::RefProxy_Svc_EventManager_Enabled& idFilterEnabled //!< ID filter state
       ) override;
 
       //! Forward CdhCore.events.DUMP_FILTER_STATE to the remote deployment
@@ -198,7 +190,7 @@ namespace RefProxy {
       void health_HLTH_ENABLE_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Fw_Enabled& enable //!< whether or not health checks are enabled
+          const ::RefProxy::RefProxy_Fw_Enabled& enable //!< whether or not health checks are enabled
       ) override;
 
       //! Forward CdhCore.health.HLTH_PING_ENABLE to the remote deployment
@@ -210,7 +202,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           const Fw::CmdStringArg& entry, //!< The entry to enable/disable
-          const ::RefProxy::Fw_Enabled& enable //!< whether or not a port is pinged
+          const ::RefProxy::RefProxy_Fw_Enabled& enable //!< whether or not a port is pinged
       ) override;
 
       //! Forward CdhCore.health.HLTH_CHNG_PING to the remote deployment
@@ -234,7 +226,7 @@ namespace RefProxy {
       void version_ENABLE_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_VersionEnabled& enable //!< whether or not Version telemetry is enabled
+          const ::RefProxy::RefProxy_Svc_VersionEnabled& enable //!< whether or not Version telemetry is enabled
       ) override;
 
       //! Forward CdhCore.version.VERSION to the remote deployment
@@ -245,7 +237,7 @@ namespace RefProxy {
       void version_VERSION_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_VersionType& version_type //!< which version type Event is requested
+          const ::RefProxy::RefProxy_Svc_VersionType& version_type //!< which version type Event is requested
       ) override;
 
       //! Forward ComCcsds.comQueue.FLUSH_QUEUE to the remote deployment
@@ -257,8 +249,8 @@ namespace RefProxy {
       void comQueue_FLUSH_QUEUE_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_QueueType& queueType, //!< The Queue data type
-          ::RefProxy::FwIndexType indexType //!< The index of the queue (within the supplied type) to flush
+          const ::RefProxy::RefProxy_Svc_QueueType& queueType, //!< The Queue data type
+          ::RefProxy::RefProxy_FwIndexType indexType //!< The index of the queue (within the supplied type) to flush
       ) override;
 
       //! Forward ComCcsds.comQueue.FLUSH_ALL_QUEUES to the remote deployment
@@ -280,9 +272,9 @@ namespace RefProxy {
       void comQueue_SET_QUEUE_PRIORITY_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_QueueType& queueType, //!< The Queue data type
-          ::RefProxy::FwIndexType indexType, //!< The index of the queue (within the supplied type) to modify
-          ::RefProxy::FwIndexType newPriority //!< New priority value for the queue
+          const ::RefProxy::RefProxy_Svc_QueueType& queueType, //!< The Queue data type
+          ::RefProxy::RefProxy_FwIndexType indexType, //!< The index of the queue (within the supplied type) to modify
+          ::RefProxy::RefProxy_FwIndexType newPriority //!< New priority value for the queue
       ) override;
 
       //! Forward DataProducts.dpCat.BUILD_CATALOG to the remote deployment
@@ -303,7 +295,7 @@ namespace RefProxy {
       void dpCat_START_XMIT_CATALOG_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Fw_Wait& wait, //!< have START_XMIT command complete wait for catalog to complete transmitting
+          const ::RefProxy::RefProxy_Fw_Wait& wait, //!< have START_XMIT command complete wait for catalog to complete transmitting
           bool remainActive //!< should the catalog resume transmission when Dps are added at runtime
       ) override;
 
@@ -355,7 +347,7 @@ namespace RefProxy {
       void dpBufferAccumulator_BA_SetMode_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_BufferAccumulator_OpState& mode
+          const ::RefProxy::RefProxy_Svc_BufferAccumulator_OpState& mode
       ) override;
 
       //! Forward DataProducts.dpBufferAccumulator.BA_DrainBuffers to the remote deployment
@@ -367,7 +359,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           U32 numToDrain,
-          const ::RefProxy::Svc_BufferAccumulator_BlockMode& blockMode
+          const ::RefProxy::RefProxy_Svc_BufferAccumulator_BlockMode& blockMode
       ) override;
 
       //! Forward FileHandling.fileDownlink.SendFile to the remote deployment
@@ -516,7 +508,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           const Fw::CmdStringArg& fileName, //!< The name of the on-board file to set parameters from
-          const ::RefProxy::Svc_PrmDb_Merge& merge //!< Whether to merge or fully reset the parameter database from the file contents
+          const ::RefProxy::RefProxy_Svc_PrmDb_Merge& merge //!< Whether to merge or fully reset the parameter database from the file contents
       ) override;
 
       //! Forward FileHandling.prmDb.PRM_COMMIT_STAGED to the remote deployment
@@ -547,7 +539,7 @@ namespace RefProxy {
       void typeDemo_CHOICE_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_Choice& choice //!< A single choice
+          const ::RefProxy::RefProxy_Ref_Choice& choice //!< A single choice
       ) override;
 
       //! Forward Ref.typeDemo.CHOICE_PRM_PRM_SET to the remote deployment
@@ -558,7 +550,7 @@ namespace RefProxy {
       void typeDemo_CHOICE_PRM_PRM_SET_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_Choice& val
+          const ::RefProxy::RefProxy_Ref_Choice& val
       ) override;
 
       //! Forward Ref.typeDemo.CHOICE_PRM_PRM_SAVE to the remote deployment
@@ -579,7 +571,7 @@ namespace RefProxy {
       void typeDemo_CHOICES_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ManyChoices& choices //!< A set of choices
+          const ::RefProxy::RefProxy_Ref_ManyChoices& choices //!< A set of choices
       ) override;
 
       //! Forward Ref.typeDemo.CHOICES_WITH_FRIENDS to the remote deployment
@@ -591,7 +583,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           U8 repeat, //!< Number of times to repeat the choices
-          const ::RefProxy::Ref_ManyChoices& choices, //!< A set of choices
+          const ::RefProxy::RefProxy_Ref_ManyChoices& choices, //!< A set of choices
           U8 repeat_max //!< Limit to the number of repetitions
       ) override;
 
@@ -603,7 +595,7 @@ namespace RefProxy {
       void typeDemo_CHOICES_PRM_PRM_SET_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ManyChoices& val
+          const ::RefProxy::RefProxy_Ref_ManyChoices& val
       ) override;
 
       //! Forward Ref.typeDemo.CHOICES_PRM_PRM_SAVE to the remote deployment
@@ -624,7 +616,7 @@ namespace RefProxy {
       void typeDemo_EXTRA_CHOICES_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_TooManyChoices& choices //!< Way to many choices to make
+          const ::RefProxy::RefProxy_Ref_TooManyChoices& choices //!< Way to many choices to make
       ) override;
 
       //! Forward Ref.typeDemo.EXTRA_CHOICES_WITH_FRIENDS to the remote deployment
@@ -636,7 +628,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           U8 repeat, //!< Number of times to repeat the choices
-          const ::RefProxy::Ref_TooManyChoices& choices, //!< Way to many choices to make
+          const ::RefProxy::RefProxy_Ref_TooManyChoices& choices, //!< Way to many choices to make
           U8 repeat_max //!< Limit to the number of repetitions
       ) override;
 
@@ -648,7 +640,7 @@ namespace RefProxy {
       void typeDemo_EXTRA_CHOICES_PRM_PRM_SET_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ManyChoices& val
+          const ::RefProxy::RefProxy_Ref_ManyChoices& val
       ) override;
 
       //! Forward Ref.typeDemo.EXTRA_CHOICES_PRM_PRM_SAVE to the remote deployment
@@ -669,7 +661,7 @@ namespace RefProxy {
       void typeDemo_CHOICE_PAIR_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ChoicePair& choices //!< A pair of choices
+          const ::RefProxy::RefProxy_Ref_ChoicePair& choices //!< A pair of choices
       ) override;
 
       //! Forward Ref.typeDemo.CHOICE_PAIR_WITH_FRIENDS to the remote deployment
@@ -681,7 +673,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           U8 repeat, //!< Number of times to repeat the choices
-          const ::RefProxy::Ref_ChoicePair& choices, //!< A pair of choices
+          const ::RefProxy::RefProxy_Ref_ChoicePair& choices, //!< A pair of choices
           U8 repeat_max //!< Limit to the number of repetitions
       ) override;
 
@@ -693,7 +685,7 @@ namespace RefProxy {
       void typeDemo_CHOICE_PAIR_PRM_PRM_SET_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ChoicePair& val
+          const ::RefProxy::RefProxy_Ref_ChoicePair& val
       ) override;
 
       //! Forward Ref.typeDemo.CHOICE_PAIR_PRM_PRM_SAVE to the remote deployment
@@ -714,7 +706,7 @@ namespace RefProxy {
       void typeDemo_GLUTTON_OF_CHOICE_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ChoiceSlurry& choices //!< A phenomenal amount of choice
+          const ::RefProxy::RefProxy_Ref_ChoiceSlurry& choices //!< A phenomenal amount of choice
       ) override;
 
       //! Forward Ref.typeDemo.GLUTTON_OF_CHOICE_WITH_FRIENDS to the remote deployment
@@ -726,7 +718,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           U8 repeat, //!< Number of times to repeat the choices
-          const ::RefProxy::Ref_ChoiceSlurry& choices, //!< A phenomenal amount of choice
+          const ::RefProxy::RefProxy_Ref_ChoiceSlurry& choices, //!< A phenomenal amount of choice
           U8 repeat_max //!< Limit to the number of repetitions
       ) override;
 
@@ -738,7 +730,7 @@ namespace RefProxy {
       void typeDemo_GLUTTON_OF_CHOICE_PRM_PRM_SET_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ChoiceSlurry& val
+          const ::RefProxy::RefProxy_Ref_ChoiceSlurry& val
       ) override;
 
       //! Forward Ref.typeDemo.GLUTTON_OF_CHOICE_PRM_PRM_SAVE to the remote deployment
@@ -779,7 +771,7 @@ namespace RefProxy {
       void typeDemo_SEND_SCALARS_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_ScalarStruct& scalar_input
+          const ::RefProxy::RefProxy_Ref_ScalarStruct& scalar_input
       ) override;
 
       //! Forward Ref.cmdSeq.CS_RUN to the remote deployment
@@ -791,7 +783,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           const Fw::CmdStringArg& fileName, //!< The name of the sequence file
-          const ::RefProxy::Svc_BlockState& block //!< Return command status when complete or not
+          const ::RefProxy::RefProxy_Svc_BlockState& block //!< Return command status when complete or not
       ) override;
 
       //! Forward Ref.cmdSeq.CS_VALIDATE to the remote deployment
@@ -880,7 +872,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           const Fw::CmdStringArg& fileName, //!< The name of the sequence file
-          const ::RefProxy::Svc_BlockState& block //!< Return command status when complete or not
+          const ::RefProxy::RefProxy_Svc_BlockState& block //!< Return command status when complete or not
       ) override;
 
       //! Forward Ref.wasmSeq.WAIT to the remote deployment
@@ -928,7 +920,7 @@ namespace RefProxy {
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
           const Fw::CmdStringArg& module, //!< Name of the module to invoke a function from
-          const ::RefProxy::Svc_BlockState& block
+          const ::RefProxy::RefProxy_Svc_BlockState& block
       ) override;
 
       //! Forward Ref.wasmSeq.CANCEL to the remote deployment
@@ -1014,7 +1006,7 @@ namespace RefProxy {
       void wasmSeq_INSTRUCTION_FUEL_PRM_SET_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          ::RefProxy::FwSizeType val
+          ::RefProxy::RefProxy_FwSizeType val
       ) override;
 
       //! Forward Ref.wasmSeq.INSTRUCTION_FUEL_PRM_SAVE to the remote deployment
@@ -1134,7 +1126,7 @@ namespace RefProxy {
           U32 Frequency,
           F32 Amplitude,
           F32 Phase,
-          const ::RefProxy::Ref_SignalType& SigType
+          const ::RefProxy::RefProxy_Ref_SignalType& SigType
       ) override;
 
       //! Forward Ref.SG1.Toggle to the remote deployment
@@ -1165,7 +1157,7 @@ namespace RefProxy {
       void SG1_Dp_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+          const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
           U32 records,
           U32 priority
       ) override;
@@ -1181,7 +1173,7 @@ namespace RefProxy {
           U32 Frequency,
           F32 Amplitude,
           F32 Phase,
-          const ::RefProxy::Ref_SignalType& SigType
+          const ::RefProxy::RefProxy_Ref_SignalType& SigType
       ) override;
 
       //! Forward Ref.SG2.Toggle to the remote deployment
@@ -1212,7 +1204,7 @@ namespace RefProxy {
       void SG2_Dp_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+          const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
           U32 records,
           U32 priority
       ) override;
@@ -1228,7 +1220,7 @@ namespace RefProxy {
           U32 Frequency,
           F32 Amplitude,
           F32 Phase,
-          const ::RefProxy::Ref_SignalType& SigType
+          const ::RefProxy::RefProxy_Ref_SignalType& SigType
       ) override;
 
       //! Forward Ref.SG3.Toggle to the remote deployment
@@ -1259,7 +1251,7 @@ namespace RefProxy {
       void SG3_Dp_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+          const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
           U32 records,
           U32 priority
       ) override;
@@ -1275,7 +1267,7 @@ namespace RefProxy {
           U32 Frequency,
           F32 Amplitude,
           F32 Phase,
-          const ::RefProxy::Ref_SignalType& SigType
+          const ::RefProxy::RefProxy_Ref_SignalType& SigType
       ) override;
 
       //! Forward Ref.SG4.Toggle to the remote deployment
@@ -1306,7 +1298,7 @@ namespace RefProxy {
       void SG4_Dp_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+          const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
           U32 records,
           U32 priority
       ) override;
@@ -1322,7 +1314,7 @@ namespace RefProxy {
           U32 Frequency,
           F32 Amplitude,
           F32 Phase,
-          const ::RefProxy::Ref_SignalType& SigType
+          const ::RefProxy::RefProxy_Ref_SignalType& SigType
       ) override;
 
       //! Forward Ref.SG5.Toggle to the remote deployment
@@ -1353,7 +1345,7 @@ namespace RefProxy {
       void SG5_Dp_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Ref_SignalGen_DpReqType& reqType,
+          const ::RefProxy::RefProxy_Ref_SignalGen_DpReqType& reqType,
           U32 records,
           U32 priority
       ) override;
@@ -1408,7 +1400,7 @@ namespace RefProxy {
       void systemResources_ENABLE_cmdHandler(
           FwOpcodeType opCode, //!< The opcode
           U32 cmdSeq, //!< The command sequence number
-          const ::RefProxy::Svc_SystemResourceEnabled& enable //!< whether or not system resource telemetry is enabled
+          const ::RefProxy::RefProxy_Svc_SystemResourceEnabled& enable //!< whether or not system resource telemetry is enabled
       ) override;
 
     private:
@@ -1420,7 +1412,7 @@ namespace RefProxy {
       //! Decode one event packet and re-emit it as this component's own event
       //!
       //! Layout: the descriptor is already consumed, leaving
-      //! [RemoteEventId][Fw::Time][argument...].
+      //! [FwEventIdType][Fw::Time][argument...].
       void decodeEvent(
           Fw::ComBuffer& _packet //!< The packet, positioned after the descriptor
       );
@@ -1433,8 +1425,9 @@ namespace RefProxy {
 
       //! Decode a channelized telemetry packet and re-emit its channels
       //!
-      //! Svc::TlmChan fills one buffer with as many [RemoteChannelId][Fw::Time][value]
-      //! triples as fit, so this reads until the buffer runs out rather than once.
+      //! Svc::TlmChan fills one buffer with as many
+      //! [FwChanIdType][Fw::Time][value] triples as fit, so this reads until the
+      //! buffer runs out rather than once.
       void decodeChannels(
           Fw::ComBuffer& _packet //!< The packet, positioned after the descriptor
       );
@@ -1448,7 +1441,7 @@ namespace RefProxy {
       //! Dispatch a packetized telemetry packet to its layout
       //!
       //! Layout: the descriptor is already consumed, leaving
-      //! [RemotePacketId][Fw::Time][channel slot...].
+      //! [FwTlmPacketizeIdType][Fw::Time][channel slot...].
       void decodeTelemetryPacket(
           Fw::ComBuffer& _packet //!< The packet, positioned after the descriptor
       );
@@ -1771,7 +1764,7 @@ namespace RefProxy {
       //! matches on.
       Fw::SerializeStatus beginCommandPacket(
           Fw::ComBuffer& packet, //!< The packet to write into
-          RemoteOpcode opcode //!< The remote's opcode
+          ::RefProxy::RefProxy_FwOpcodeType opcode //!< The remote's opcode
       ) const;
 
       //! Send a finished command packet and respond to the caller

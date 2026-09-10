@@ -682,6 +682,7 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
     selection = _select(dictionary, config, warnings)
     namer = TypeNamer(
         namespace=config.namespace,
+        component=config.component,
         prefix=config.type_prefix,
         overrides=dict(config.type_name_overrides),
     )
@@ -791,7 +792,7 @@ def _check_type_name_overrides(
     if not config.type_name_overrides:
         return
     known = {definition.qualified_name for definition in dictionary.type_defs}
-    emitted = {definition.qualified_name for definition in spelling.type_defs()}
+    emitted = {definition.qualified_name for definition in spelling.all_type_defs()}
     for qualified, identifier, context in _checked_overrides(
         config.type_name_overrides,
         label="type name override",
@@ -1526,10 +1527,15 @@ def _value_param(plan: Plan, param: FormalParam) -> PortParam:
 
 
 def _typed_param(plan: Plan, name: str, ref: TypeRef, annotation: str) -> PortParam:
-    """A port formal carrying a dictionary type."""
+    """A port formal carrying a dictionary type.
+
+    Spelled for a *module-scope* declaration, since that is where a port definition has to
+    go: the mirrored types are component members, so the port names them through the
+    component.
+    """
     return PortParam(
         name=name,
-        fpp=plan.spelling.fpp_type(ref),
+        fpp=plan.spelling.outer_fpp_type(ref),
         cpp=plan.spelling.cpp_param(ref, Context.PORT),
         annotation=annotation,
         string_size=ref.size if ref.kind is TypeKind.STRING else None,

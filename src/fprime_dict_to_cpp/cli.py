@@ -18,6 +18,7 @@ from typing import Any
 
 from . import config_file, dictionary, interactive
 from .cpp import cpp_file_names
+from .fpp import fpp_file_names
 from .generate import Generated, generate
 from .model import Dictionary, DictionaryError, NamingError
 from .options import Invalid, Options, Shape, Spec, specs
@@ -290,9 +291,11 @@ def _report(result: Generated, scaffold: interactive.Scaffold | None = None) -> 
         + (f", {len(plan.packets)} telemetry packets" if plan.has_packets else "")
     )
     print(
-        f"  {len(plan.spelling.type_defs())} type definitions "
-        f"(of {len(plan.dictionary.type_defs)} in the dictionary; the rest are "
-        f"unreachable from any mirrored member)"
+        f"  {len(plan.spelling.all_type_defs())} type definitions "
+        f"({len(plan.spelling.wire_type_defs())} packet-header widths, and "
+        f"{len(plan.spelling.type_defs())} of the "
+        f"{len(plan.dictionary.type_defs)} in the dictionary; the rest are unreachable "
+        f"from any mirrored member)"
     )
     for line in _hook_notes(plan):
         print(line)
@@ -341,15 +344,14 @@ def _report_dry_run(
         f"{len(plan.declared_channels)} telemetry channels, "
         f"{len(plan.packets)} telemetry packets"
     )
-    print(f"  {len(plan.spelling.type_defs())} type definitions")
+    print(f"  {len(plan.spelling.all_type_defs())} type definitions")
     for line in _hook_notes(plan):
         print(line)
     note = _override_note(config)
     if note:
         print(note)
     names = [
-        f"{component}Types.fpp",
-        f"{component}.fpp",
+        *fpp_file_names(plan),
         "CMakeLists.txt",
         f"{component}.hpp",
         f"{component}.cpp",

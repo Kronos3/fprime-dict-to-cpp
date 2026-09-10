@@ -15,7 +15,7 @@ namespace RefProxy {
   void RefProxy ::
     decodeEvent(Fw::ComBuffer& _packet)
   {
-    RemoteEventId _identifier = 0;
+    ::RefProxy::RefProxy_FwEventIdType _identifier = 0;
     Fw::SerializeStatus _status = _packet.deserializeTo(_identifier);
     if (_status != Fw::FW_SERIALIZE_OK) {
       this->recordDecodeError(DESCRIPTOR_LOG, 0, _status);
@@ -36,7 +36,7 @@ namespace RefProxy {
     switch (_identifier) {
       case 0xA10: {
         // Ref.dpDemo.ColorSelected
-        ::RefProxy::Ref_DpDemo_ColorEnum color;
+        ::RefProxy::RefProxy_Ref_DpDemo_ColorEnum color;
         _status = _packet.deserializeTo(color);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_dpDemo_ColorSelected(color);
@@ -76,7 +76,7 @@ namespace RefProxy {
       }
       case 0xA14: {
         // Ref.dpDemo.DpMemRequested
-        ::RefProxy::FwSizeType size = 0;
+        ::RefProxy::RefProxy_FwSizeType size = 0;
         _status = _packet.deserializeTo(size);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_dpDemo_DpMemRequested(size);
@@ -85,7 +85,7 @@ namespace RefProxy {
       }
       case 0xA15: {
         // Ref.dpDemo.DpMemReceived
-        ::RefProxy::FwSizeType size = 0;
+        ::RefProxy::RefProxy_FwSizeType size = 0;
         _status = _packet.deserializeTo(size);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_dpDemo_DpMemReceived(size);
@@ -104,7 +104,7 @@ namespace RefProxy {
       }
       case 0x1000000: {
         // CdhCore.cmdDisp.OpCodeRegistered
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         I32 port = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -121,7 +121,7 @@ namespace RefProxy {
       }
       case 0x1000001: {
         // CdhCore.cmdDisp.OpCodeDispatched
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         I32 port = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -134,7 +134,7 @@ namespace RefProxy {
       }
       case 0x1000002: {
         // CdhCore.cmdDisp.OpCodeCompleted
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_COMMAND_cmdDisp_OpCodeCompleted(Opcode);
@@ -143,9 +143,9 @@ namespace RefProxy {
       }
       case 0x1000003: {
         // CdhCore.cmdDisp.OpCodeError
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
-        ::RefProxy::Fw_CmdResponse error;
+        ::RefProxy::RefProxy_Fw_CmdResponse error;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(error);
         }
@@ -156,7 +156,7 @@ namespace RefProxy {
       }
       case 0x1000004: {
         // CdhCore.cmdDisp.MalformedCommand
-        ::RefProxy::Fw_DeserialStatus Status;
+        ::RefProxy::RefProxy_Fw_DeserialStatus Status;
         _status = _packet.deserializeTo(Status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_cmdDisp_MalformedCommand(Status);
@@ -165,7 +165,7 @@ namespace RefProxy {
       }
       case 0x1000005: {
         // CdhCore.cmdDisp.InvalidCommand
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_cmdDisp_InvalidCommand(Opcode);
@@ -174,7 +174,7 @@ namespace RefProxy {
       }
       case 0x1000006: {
         // CdhCore.cmdDisp.TooManyCommands
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_cmdDisp_TooManyCommands(Opcode);
@@ -214,7 +214,7 @@ namespace RefProxy {
       }
       case 0x100000A: {
         // CdhCore.cmdDisp.OpCodeReregistered
-        ::RefProxy::FwOpcodeType Opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         I32 port = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -227,7 +227,7 @@ namespace RefProxy {
       }
       case 0x100000B: {
         // CdhCore.cmdDisp.CommandDroppedQueueOverflow
-        ::RefProxy::FwOpcodeType OpCode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType OpCode = 0;
         _status = _packet.deserializeTo(OpCode);
         U32 Context = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -240,7 +240,7 @@ namespace RefProxy {
       }
       case 0x1001000: {
         // CdhCore.events.SEVERITY_FILTER_STATE
-        ::RefProxy::Svc_EventManager_FilterSeverity severity;
+        ::RefProxy::RefProxy_Svc_EventManager_FilterSeverity severity;
         _status = _packet.deserializeTo(severity);
         bool enabled = false;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -253,7 +253,7 @@ namespace RefProxy {
       }
       case 0x1001001: {
         // CdhCore.events.ID_FILTER_ENABLED
-        ::RefProxy::FwEventIdType ID = 0;
+        ::RefProxy::RefProxy_FwEventIdType ID = 0;
         _status = _packet.deserializeTo(ID);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_events_ID_FILTER_ENABLED(ID);
@@ -262,7 +262,7 @@ namespace RefProxy {
       }
       case 0x1001002: {
         // CdhCore.events.ID_FILTER_LIST_FULL
-        ::RefProxy::FwEventIdType ID = 0;
+        ::RefProxy::RefProxy_FwEventIdType ID = 0;
         _status = _packet.deserializeTo(ID);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_events_ID_FILTER_LIST_FULL(ID);
@@ -271,7 +271,7 @@ namespace RefProxy {
       }
       case 0x1001003: {
         // CdhCore.events.ID_FILTER_REMOVED
-        ::RefProxy::FwEventIdType ID = 0;
+        ::RefProxy::RefProxy_FwEventIdType ID = 0;
         _status = _packet.deserializeTo(ID);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_events_ID_FILTER_REMOVED(ID);
@@ -280,7 +280,7 @@ namespace RefProxy {
       }
       case 0x1001004: {
         // CdhCore.events.ID_FILTER_NOT_FOUND
-        ::RefProxy::FwEventIdType ID = 0;
+        ::RefProxy::RefProxy_FwEventIdType ID = 0;
         _status = _packet.deserializeTo(ID);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_events_ID_FILTER_NOT_FOUND(ID);
@@ -320,7 +320,7 @@ namespace RefProxy {
       }
       case 0x1002003: {
         // CdhCore.health.HLTH_CHECK_ENABLE
-        ::RefProxy::Fw_Enabled enabled;
+        ::RefProxy::RefProxy_Fw_Enabled enabled;
         _status = _packet.deserializeTo(enabled);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_health_HLTH_CHECK_ENABLE(enabled);
@@ -329,7 +329,7 @@ namespace RefProxy {
       }
       case 0x1002004: {
         // CdhCore.health.HLTH_CHECK_PING
-        ::RefProxy::Fw_Enabled enabled;
+        ::RefProxy::RefProxy_Fw_Enabled enabled;
         _status = _packet.deserializeTo(enabled);
         Fw::StringTemplate<40> entry;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -412,7 +412,7 @@ namespace RefProxy {
       }
       case 0x1003003: {
         // CdhCore.version.CustomVersions
-        ::RefProxy::Svc_VersionCfg_VersionEnum version_enum;
+        ::RefProxy::RefProxy_Svc_VersionCfg_VersionEnum version_enum;
         _status = _packet.deserializeTo(version_enum);
         Fw::StringTemplate<40> version_value;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -630,9 +630,9 @@ namespace RefProxy {
       }
       case 0x2000000: {
         // ComCcsds.comQueue.QueueOverflow
-        ::RefProxy::Svc_QueueType queueType;
+        ::RefProxy::RefProxy_Svc_QueueType queueType;
         _status = _packet.deserializeTo(queueType);
-        ::RefProxy::FwIndexType index = 0;
+        ::RefProxy::RefProxy_FwIndexType index = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(index);
         }
@@ -643,13 +643,13 @@ namespace RefProxy {
       }
       case 0x2000001: {
         // ComCcsds.comQueue.QueuePriorityChanged
-        ::RefProxy::Svc_QueueType queueType;
+        ::RefProxy::RefProxy_Svc_QueueType queueType;
         _status = _packet.deserializeTo(queueType);
-        ::RefProxy::FwIndexType indexType = 0;
+        ::RefProxy::RefProxy_FwIndexType indexType = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(indexType);
         }
-        ::RefProxy::FwIndexType newPriority = 0;
+        ::RefProxy::RefProxy_FwIndexType newPriority = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(newPriority);
         }
@@ -665,7 +665,7 @@ namespace RefProxy {
       }
       case 0x2001001: {
         // ComCcsds.frameAccumulator.FrameDetectionSizeError
-        ::RefProxy::FwSizeType size_out = 0;
+        ::RefProxy::RefProxy_FwSizeType size_out = 0;
         _status = _packet.deserializeTo(size_out);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_frameAccumulator_FrameDetectionSizeError(size_out);
@@ -679,7 +679,7 @@ namespace RefProxy {
       }
       case 0x2002000: {
         // ComCcsds.commsBufferManager.NoBuffsAvailable
-        ::RefProxy::FwSizeType size = 0;
+        ::RefProxy::RefProxy_FwSizeType size = 0;
         _status = _packet.deserializeTo(size);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_commsBufferManager_NoBuffsAvailable(size);
@@ -731,7 +731,7 @@ namespace RefProxy {
         // ComCcsds.tcDeframer.InvalidFrameLength
         U16 transmitted = 0;
         _status = _packet.deserializeTo(transmitted);
-        ::RefProxy::FwSizeType actual = 0;
+        ::RefProxy::RefProxy_FwSizeType actual = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(actual);
         }
@@ -773,9 +773,9 @@ namespace RefProxy {
       }
       case 0x2005001: {
         // ComCcsds.spacePacketDeframer.InvalidLength
-        ::RefProxy::FwSizeType transmitted = 0;
+        ::RefProxy::RefProxy_FwSizeType transmitted = 0;
         _status = _packet.deserializeTo(transmitted);
-        ::RefProxy::FwSizeType actual = 0;
+        ::RefProxy::RefProxy_FwSizeType actual = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(actual);
         }
@@ -969,7 +969,7 @@ namespace RefProxy {
         // DataProducts.dpCat.FileHdrError
         Fw::StringTemplate<240> file;
         _status = _packet.deserializeTo(file);
-        ::RefProxy::Svc_DpHdrField field;
+        ::RefProxy::RefProxy_Svc_DpHdrField field;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(field);
         }
@@ -1001,7 +1001,7 @@ namespace RefProxy {
       }
       case 0x400001B: {
         // DataProducts.dpCat.DpInsertError
-        ::RefProxy::Svc_DpRecord dp;
+        ::RefProxy::RefProxy_Svc_DpRecord dp;
         _status = _packet.deserializeTo(dp);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpCat_DpInsertError(dp);
@@ -1010,7 +1010,7 @@ namespace RefProxy {
       }
       case 0x400001C: {
         // DataProducts.dpCat.DpDuplicate
-        ::RefProxy::Svc_DpRecord dp;
+        ::RefProxy::RefProxy_Svc_DpRecord dp;
         _status = _packet.deserializeTo(dp);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_DIAGNOSTIC_dpCat_DpDuplicate(dp);
@@ -1019,7 +1019,7 @@ namespace RefProxy {
       }
       case 0x400001D: {
         // DataProducts.dpCat.DpCatalogFull
-        ::RefProxy::Svc_DpRecord dp;
+        ::RefProxy::RefProxy_Svc_DpRecord dp;
         _status = _packet.deserializeTo(dp);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpCat_DpCatalogFull(dp);
@@ -1132,7 +1132,7 @@ namespace RefProxy {
         // DataProducts.dpCat.DpFileXmitError
         Fw::StringTemplate<240> file;
         _status = _packet.deserializeTo(file);
-        ::RefProxy::Svc_SendFileStatus stat;
+        ::RefProxy::RefProxy_Svc_SendFileStatus stat;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
         }
@@ -1145,7 +1145,7 @@ namespace RefProxy {
         // DataProducts.dpCat.DpFileSendError
         Fw::StringTemplate<240> file;
         _status = _packet.deserializeTo(file);
-        ::RefProxy::Svc_SendFileStatus stat;
+        ::RefProxy::RefProxy_Svc_SendFileStatus stat;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
         }
@@ -1216,7 +1216,7 @@ namespace RefProxy {
         // DataProducts.dpCat.FileNameFormatError
         Fw::StringTemplate<240> file;
         _status = _packet.deserializeTo(file);
-        ::RefProxy::Fw_StringFormatStatus status;
+        ::RefProxy::RefProxy_Fw_StringFormatStatus status;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
         }
@@ -1227,7 +1227,7 @@ namespace RefProxy {
       }
       case 0x4001000: {
         // DataProducts.dpMgr.BufferAllocationFailed
-        ::RefProxy::FwDpIdType id = 0;
+        ::RefProxy::RefProxy_FwDpIdType id = 0;
         _status = _packet.deserializeTo(id);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpMgr_BufferAllocationFailed(id);
@@ -1241,7 +1241,7 @@ namespace RefProxy {
       }
       case 0x4002001: {
         // DataProducts.dpWriter.BufferTooSmallForPacket
-        ::RefProxy::FwSizeType bufferSize = 0;
+        ::RefProxy::RefProxy_FwSizeType bufferSize = 0;
         _status = _packet.deserializeTo(bufferSize);
         U32 minSize = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1254,7 +1254,7 @@ namespace RefProxy {
       }
       case 0x4002002: {
         // DataProducts.dpWriter.InvalidHeaderHash
-        ::RefProxy::FwSizeType bufferSize = 0;
+        ::RefProxy::RefProxy_FwSizeType bufferSize = 0;
         _status = _packet.deserializeTo(bufferSize);
         U32 storedHash = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1271,7 +1271,7 @@ namespace RefProxy {
       }
       case 0x4002003: {
         // DataProducts.dpWriter.InvalidHeader
-        ::RefProxy::FwSizeType bufferSize = 0;
+        ::RefProxy::RefProxy_FwSizeType bufferSize = 0;
         _status = _packet.deserializeTo(bufferSize);
         U32 errorCode = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1284,7 +1284,7 @@ namespace RefProxy {
       }
       case 0x4002004: {
         // DataProducts.dpWriter.BufferTooSmallForData
-        ::RefProxy::FwSizeType bufferSize = 0;
+        ::RefProxy::RefProxy_FwSizeType bufferSize = 0;
         _status = _packet.deserializeTo(bufferSize);
         U32 minSize = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1297,7 +1297,7 @@ namespace RefProxy {
       }
       case 0x4002005: {
         // DataProducts.dpWriter.FileNameFormatError
-        ::RefProxy::Fw_StringFormatStatus status;
+        ::RefProxy::RefProxy_Fw_StringFormatStatus status;
         _status = _packet.deserializeTo(status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpWriter_FileNameFormatError(status);
@@ -1353,7 +1353,7 @@ namespace RefProxy {
       }
       case 0x4003000: {
         // DataProducts.dpBufferManager.NoBuffsAvailable
-        ::RefProxy::FwSizeType size = 0;
+        ::RefProxy::RefProxy_FwSizeType size = 0;
         _status = _packet.deserializeTo(size);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpBufferManager_NoBuffsAvailable(size);
@@ -1474,7 +1474,7 @@ namespace RefProxy {
       }
       case 0x5000004: {
         // FileHandling.fileUplink.InvalidReceiveMode
-        ::RefProxy::FwPacketDescriptorType packetType = 0;
+        ::RefProxy::RefProxy_FwPacketDescriptorType packetType = 0;
         _status = _packet.deserializeTo(packetType);
         U32 mode = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1536,7 +1536,7 @@ namespace RefProxy {
       }
       case 0x500000A: {
         // FileHandling.fileUplink.InvalidPacketReceived
-        ::RefProxy::FwPacketDescriptorType packetType = 0;
+        ::RefProxy::RefProxy_FwPacketDescriptorType packetType = 0;
         _status = _packet.deserializeTo(packetType);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileUplink_InvalidPacketReceived(packetType);
@@ -1878,7 +1878,7 @@ namespace RefProxy {
         // FileHandling.fileManager.FileSizeSucceeded
         Fw::StringTemplate<240> fileName;
         _status = _packet.deserializeTo(fileName);
-        ::RefProxy::FwSizeType size = 0;
+        ::RefProxy::RefProxy_FwSizeType size = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(size);
         }
@@ -1952,7 +1952,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(fileName);
         }
-        ::RefProxy::FwSizeType fileSize = 0;
+        ::RefProxy::RefProxy_FwSizeType fileSize = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(fileSize);
         }
@@ -2013,7 +2013,7 @@ namespace RefProxy {
         // FileHandling.fileManager.FileNameFormatError
         Fw::StringTemplate<240> fileName;
         _status = _packet.deserializeTo(fileName);
-        ::RefProxy::Fw_StringFormatStatus status;
+        ::RefProxy::RefProxy_Fw_StringFormatStatus status;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
         }
@@ -2024,7 +2024,7 @@ namespace RefProxy {
       }
       case 0x5003000: {
         // FileHandling.prmDb.PrmIdNotFound
-        ::RefProxy::FwPrmIdType Id = 0;
+        ::RefProxy::RefProxy_FwPrmIdType Id = 0;
         _status = _packet.deserializeTo(Id);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_prmDb_PrmIdNotFound(Id);
@@ -2033,7 +2033,7 @@ namespace RefProxy {
       }
       case 0x5003001: {
         // FileHandling.prmDb.PrmIdUpdated
-        ::RefProxy::FwPrmIdType Id = 0;
+        ::RefProxy::RefProxy_FwPrmIdType Id = 0;
         _status = _packet.deserializeTo(Id);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_prmDb_PrmIdUpdated(Id);
@@ -2042,7 +2042,7 @@ namespace RefProxy {
       }
       case 0x5003002: {
         // FileHandling.prmDb.PrmDbFull
-        ::RefProxy::FwPrmIdType Id = 0;
+        ::RefProxy::RefProxy_FwPrmIdType Id = 0;
         _status = _packet.deserializeTo(Id);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_prmDb_PrmDbFull(Id);
@@ -2051,7 +2051,7 @@ namespace RefProxy {
       }
       case 0x5003003: {
         // FileHandling.prmDb.PrmIdAdded
-        ::RefProxy::FwPrmIdType Id = 0;
+        ::RefProxy::RefProxy_FwPrmIdType Id = 0;
         _status = _packet.deserializeTo(Id);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_prmDb_PrmIdAdded(Id);
@@ -2060,7 +2060,7 @@ namespace RefProxy {
       }
       case 0x5003004: {
         // FileHandling.prmDb.PrmFileWriteError
-        ::RefProxy::Svc_PrmDb_PrmWriteError stage;
+        ::RefProxy::RefProxy_Svc_PrmDb_PrmWriteError stage;
         _status = _packet.deserializeTo(stage);
         I32 record = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -2086,7 +2086,7 @@ namespace RefProxy {
       }
       case 0x5003006: {
         // FileHandling.prmDb.PrmFileReadError
-        ::RefProxy::Svc_PrmDb_PrmReadError stage;
+        ::RefProxy::RefProxy_Svc_PrmDb_PrmReadError stage;
         _status = _packet.deserializeTo(stage);
         I32 record = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -2147,9 +2147,9 @@ namespace RefProxy {
       }
       case 0x500300B: {
         // FileHandling.prmDb.PrmDbFileLoadInvalidAction
-        ::RefProxy::Svc_PrmDb_PrmDbFileLoadState currentState;
+        ::RefProxy::RefProxy_Svc_PrmDb_PrmDbFileLoadState currentState;
         _status = _packet.deserializeTo(currentState);
-        ::RefProxy::Svc_PrmDb_PrmLoadAction attemptedAction;
+        ::RefProxy::RefProxy_Svc_PrmDb_PrmLoadAction attemptedAction;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(attemptedAction);
         }
@@ -2187,7 +2187,7 @@ namespace RefProxy {
       }
       case 0x10001002: {
         // Ref.rateGroup1Comp.RateGroupTimeGetError
-        ::RefProxy::Os_RawTimeStatus status;
+        ::RefProxy::RefProxy_Os_RawTimeStatus status;
         _status = _packet.deserializeTo(status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_rateGroup1Comp_RateGroupTimeGetError(status);
@@ -2210,7 +2210,7 @@ namespace RefProxy {
       }
       case 0x10002002: {
         // Ref.rateGroup2Comp.RateGroupTimeGetError
-        ::RefProxy::Os_RawTimeStatus status;
+        ::RefProxy::RefProxy_Os_RawTimeStatus status;
         _status = _packet.deserializeTo(status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_rateGroup2Comp_RateGroupTimeGetError(status);
@@ -2233,7 +2233,7 @@ namespace RefProxy {
       }
       case 0x10003002: {
         // Ref.rateGroup3Comp.RateGroupTimeGetError
-        ::RefProxy::Os_RawTimeStatus status;
+        ::RefProxy::RefProxy_Os_RawTimeStatus status;
         _status = _packet.deserializeTo(status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_rateGroup3Comp_RateGroupTimeGetError(status);
@@ -2256,7 +2256,7 @@ namespace RefProxy {
       }
       case 0x10005000: {
         // Ref.typeDemo.ChoiceEv
-        ::RefProxy::Ref_Choice choice;
+        ::RefProxy::RefProxy_Ref_Choice choice;
         _status = _packet.deserializeTo(choice);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_typeDemo_ChoiceEv(choice);
@@ -2265,7 +2265,7 @@ namespace RefProxy {
       }
       case 0x10005001: {
         // Ref.typeDemo.ChoicesEv
-        ::RefProxy::Ref_ManyChoices choices;
+        ::RefProxy::RefProxy_Ref_ManyChoices choices;
         _status = _packet.deserializeTo(choices);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_typeDemo_ChoicesEv(choices);
@@ -2274,7 +2274,7 @@ namespace RefProxy {
       }
       case 0x10005002: {
         // Ref.typeDemo.ExtraChoicesEv
-        ::RefProxy::Ref_TooManyChoices choices;
+        ::RefProxy::RefProxy_Ref_TooManyChoices choices;
         _status = _packet.deserializeTo(choices);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_typeDemo_ExtraChoicesEv(choices);
@@ -2283,7 +2283,7 @@ namespace RefProxy {
       }
       case 0x10005003: {
         // Ref.typeDemo.ChoicePairEv
-        ::RefProxy::Ref_ChoicePair choices;
+        ::RefProxy::RefProxy_Ref_ChoicePair choices;
         _status = _packet.deserializeTo(choices);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_typeDemo_ChoicePairEv(choices);
@@ -2292,7 +2292,7 @@ namespace RefProxy {
       }
       case 0x10005004: {
         // Ref.typeDemo.ChoiceSlurryEv
-        ::RefProxy::Ref_ChoiceSlurry choices;
+        ::RefProxy::RefProxy_Ref_ChoiceSlurry choices;
         _status = _packet.deserializeTo(choices);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_typeDemo_ChoiceSlurryEv(choices);
@@ -2301,9 +2301,9 @@ namespace RefProxy {
       }
       case 0x10005005: {
         // Ref.typeDemo.ChoicePrmEv
-        ::RefProxy::Ref_Choice choice;
+        ::RefProxy::RefProxy_Ref_Choice choice;
         _status = _packet.deserializeTo(choice);
-        ::RefProxy::Fw_ParamValid validity;
+        ::RefProxy::RefProxy_Fw_ParamValid validity;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(validity);
         }
@@ -2314,9 +2314,9 @@ namespace RefProxy {
       }
       case 0x10005006: {
         // Ref.typeDemo.ChoicesPrmEv
-        ::RefProxy::Ref_ManyChoices choices;
+        ::RefProxy::RefProxy_Ref_ManyChoices choices;
         _status = _packet.deserializeTo(choices);
-        ::RefProxy::Fw_ParamValid validity;
+        ::RefProxy::RefProxy_Fw_ParamValid validity;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(validity);
         }
@@ -2327,9 +2327,9 @@ namespace RefProxy {
       }
       case 0x10005007: {
         // Ref.typeDemo.ExtraChoicesPrmEv
-        ::RefProxy::Ref_TooManyChoices choices;
+        ::RefProxy::RefProxy_Ref_TooManyChoices choices;
         _status = _packet.deserializeTo(choices);
-        ::RefProxy::Fw_ParamValid validity;
+        ::RefProxy::RefProxy_Fw_ParamValid validity;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(validity);
         }
@@ -2340,9 +2340,9 @@ namespace RefProxy {
       }
       case 0x10005008: {
         // Ref.typeDemo.ChoicePairPrmEv
-        ::RefProxy::Ref_ChoicePair choices;
+        ::RefProxy::RefProxy_Ref_ChoicePair choices;
         _status = _packet.deserializeTo(choices);
-        ::RefProxy::Fw_ParamValid validity;
+        ::RefProxy::RefProxy_Fw_ParamValid validity;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(validity);
         }
@@ -2353,9 +2353,9 @@ namespace RefProxy {
       }
       case 0x10005009: {
         // Ref.typeDemo.ChoiceSlurryPrmEv
-        ::RefProxy::Ref_ChoiceSlurry choices;
+        ::RefProxy::RefProxy_Ref_ChoiceSlurry choices;
         _status = _packet.deserializeTo(choices);
-        ::RefProxy::Fw_ParamValid validity;
+        ::RefProxy::RefProxy_Fw_ParamValid validity;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(validity);
         }
@@ -2376,7 +2376,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(float3);
         }
-        ::RefProxy::Ref_FloatSet floats;
+        ::RefProxy::RefProxy_Ref_FloatSet floats;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(floats);
         }
@@ -2387,7 +2387,7 @@ namespace RefProxy {
       }
       case 0x1000500B: {
         // Ref.typeDemo.ScalarStructEv
-        ::RefProxy::Ref_ScalarStruct scalar_argument;
+        ::RefProxy::RefProxy_Ref_ScalarStruct scalar_argument;
         _status = _packet.deserializeTo(scalar_argument);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_typeDemo_ScalarStructEv(scalar_argument);
@@ -2425,7 +2425,7 @@ namespace RefProxy {
         // Ref.cmdSeq.CS_FileInvalid
         Fw::StringTemplate<60> fileName;
         _status = _packet.deserializeTo(fileName);
-        ::RefProxy::Svc_CmdSequencer_FileReadStage stage;
+        ::RefProxy::RefProxy_Svc_CmdSequencer_FileReadStage stage;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stage);
         }
@@ -2502,7 +2502,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
         }
-        ::RefProxy::FwOpcodeType opCode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType opCode = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(opCode);
         }
@@ -2528,7 +2528,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
         }
-        ::RefProxy::FwOpcodeType opCode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType opCode = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(opCode);
         }
@@ -2608,7 +2608,7 @@ namespace RefProxy {
       }
       case 0x10006010: {
         // Ref.cmdSeq.CS_UnexpectedCompletion
-        ::RefProxy::FwOpcodeType opcode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType opcode = 0;
         _status = _packet.deserializeTo(opcode);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_cmdSeq_CS_UnexpectedCompletion(opcode);
@@ -2617,7 +2617,7 @@ namespace RefProxy {
       }
       case 0x10006011: {
         // Ref.cmdSeq.CS_ModeSwitched
-        ::RefProxy::Svc_CmdSequencer_SeqMode mode;
+        ::RefProxy::RefProxy_Svc_CmdSequencer_SeqMode mode;
         _status = _packet.deserializeTo(mode);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdSeq_CS_ModeSwitched(mode);
@@ -2681,7 +2681,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
         }
-        ::RefProxy::FwOpcodeType opCode = 0;
+        ::RefProxy::RefProxy_FwOpcodeType opCode = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(opCode);
         }
@@ -2708,7 +2708,7 @@ namespace RefProxy {
         // Ref.wasmSeq.StoreAllocationFailed
         U16 moduleCount = 0;
         _status = _packet.deserializeTo(moduleCount);
-        ::RefProxy::Svc_WasmSequencer_AllocError err;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_AllocError err;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(err);
         }
@@ -2728,7 +2728,7 @@ namespace RefProxy {
       }
       case 0x10007002: {
         // Ref.wasmSeq.InvalidCommand
-        ::RefProxy::Svc_WasmSequencer_SequencerStateMachine_State state;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_SequencerStateMachine_State state;
         _status = _packet.deserializeTo(state);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_wasmSeq_InvalidCommand(state);
@@ -2759,7 +2759,7 @@ namespace RefProxy {
       }
       case 0x10007005: {
         // Ref.wasmSeq.ModuleLoadFailed
-        ::RefProxy::Svc_WasmSequencer_Status status;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_Status status;
         _status = _packet.deserializeTo(status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_wasmSeq_ModuleLoadFailed(status);
@@ -2791,9 +2791,9 @@ namespace RefProxy {
       }
       case 0x10007009: {
         // Ref.wasmSeq.HostFunctionInvalidPointer
-        ::RefProxy::Svc_WasmSequencer_HostFunction f;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_HostFunction f;
         _status = _packet.deserializeTo(f);
-        ::RefProxy::Svc_WasmSequencer_Status code;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_Status code;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(code);
         }
@@ -2823,7 +2823,7 @@ namespace RefProxy {
       }
       case 0x1000700D: {
         // Ref.wasmSeq.SequenceTrap
-        ::RefProxy::Svc_WasmSequencer_TrapReason reason;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_TrapReason reason;
         _status = _packet.deserializeTo(reason);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_wasmSeq_SequenceTrap(reason);
@@ -2855,7 +2855,7 @@ namespace RefProxy {
       }
       case 0x10007011: {
         // Ref.wasmSeq.GuestMemoryError
-        ::RefProxy::Svc_WasmSequencer_Status status;
+        ::RefProxy::RefProxy_Svc_WasmSequencer_Status status;
         _status = _packet.deserializeTo(status);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_wasmSeq_GuestMemoryError(status);
@@ -2981,7 +2981,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(Phase);
         }
-        ::RefProxy::Ref_SignalType SignalType;
+        ::RefProxy::RefProxy_Ref_SignalType SignalType;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(SignalType);
         }
@@ -3070,7 +3070,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(Phase);
         }
-        ::RefProxy::Ref_SignalType SignalType;
+        ::RefProxy::RefProxy_Ref_SignalType SignalType;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(SignalType);
         }
@@ -3159,7 +3159,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(Phase);
         }
-        ::RefProxy::Ref_SignalType SignalType;
+        ::RefProxy::RefProxy_Ref_SignalType SignalType;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(SignalType);
         }
@@ -3248,7 +3248,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(Phase);
         }
-        ::RefProxy::Ref_SignalType SignalType;
+        ::RefProxy::RefProxy_Ref_SignalType SignalType;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(SignalType);
         }
@@ -3337,7 +3337,7 @@ namespace RefProxy {
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(Phase);
         }
-        ::RefProxy::Ref_SignalType SignalType;
+        ::RefProxy::RefProxy_Ref_SignalType SignalType;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(SignalType);
         }

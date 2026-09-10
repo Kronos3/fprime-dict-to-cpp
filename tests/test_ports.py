@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from fprime_dict_to_cpp.cpp import cpp_file_names, render_implementation
-from fprime_dict_to_cpp.fpp import render_component, render_types
+from fprime_dict_to_cpp.fpp import render_component
 from fprime_dict_to_cpp.model import (
     ComponentKind,
     Dictionary,
@@ -370,8 +370,10 @@ class TestPortFormals:
     ) -> None:
         plan = plan_for(ref, command_ports={COMMAND: True})
         port = port_for(plan, COMMAND)
+        # Qualified through the component: a port definition cannot be a component member,
+        # so it names the mirrored type from module scope.
         assert [(p.name, p.fpp) for p in port.params] == [  # type: ignore[attr-defined]
-            ("color", "Ref_DpDemo_ColorEnum")
+            ("color", "RefProxy.Ref_DpDemo_ColorEnum")
         ]
 
     def test_an_event_port_carries_the_event_s_arguments(self, ref: Dictionary) -> None:
@@ -417,11 +419,13 @@ class TestPortFormals:
         )
         assert "_packet.serializeFrom(_clampedSourceFileName);" in commands
 
-    def test_a_generated_port_type_is_declared_in_the_types_file(
+    def test_a_generated_port_type_is_declared_beside_the_component(
         self, ref: Dictionary
     ) -> None:
+        # Beside rather than inside: FPP has no port definition among a component's
+        # members, so these are the one thing the model file declares itself.
         plan = plan_for(ref, command_ports={COMMAND: True})
-        assert "port dpDemo_SelectColor_CmdPort(" in render_types(plan)
+        assert "port dpDemo_SelectColor_CmdPort(" in render_component(plan)
 
 
 class TestPortDeclarations:

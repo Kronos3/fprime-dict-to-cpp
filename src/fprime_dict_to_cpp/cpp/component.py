@@ -9,10 +9,13 @@ the remote.
 Two details govern most of the code:
 
 *Remote widths.*  Every header field is read at the width the *remote* serialized it,
-taken from its dictionary rather than from the local ``FpConfig.h``.  Where the framework
-does the deserializing for us -- ``Fw::Time``, and the length prefix on a string -- we
-cannot substitute a width, so the generated file carries ``static_assert``\\ s that turn a
-configuration mismatch into a compile error instead of silent corruption.
+taken from its dictionary rather than from the local ``FpConfig.h``.  Those widths are
+declared in the model as the component's own ``FwOpcodeType`` and friends, so a header
+field is read through ``RefProxy_FwOpcodeType`` rather than through a ``using`` alias this
+file would have had to invent.  Where the framework does the deserializing for us --
+``Fw::Time``, and the length prefix on a string -- we cannot substitute a width, so the
+generated file carries ``static_assert``\\ s that turn a configuration mismatch into a
+compile error instead of silent corruption.
 
 *Fixed-width slots.*  Channelized telemetry packs values end to end, but a packetized
 telemetry packet gives every channel a slot as wide as its type's *maximum* serialized
@@ -42,9 +45,17 @@ from ..plan import (
     PortParam,
     PortPlan,
 )
-from ..spelling import Context, safe_identifier
+from ..spelling import WIRE_TYPE_NAMES, Context, safe_identifier
 
 __all__ = ["cpp_file_names", "render_implementation"]
+
+#: The remote packet-header widths this file reads, by what each one is a width *of*.
+#:
+#: The values are the dictionary's alias names, so the generated C++ spelling comes out of
+#: :class:`~fprime_dict_to_cpp.spelling.TypeNamer` and honours a type name override.
+_DESCRIPTOR_TYPE, _OPCODE_TYPE, _EVENT_ID_TYPE, _CHANNEL_ID_TYPE, _PACKET_ID_TYPE = (
+    WIRE_TYPE_NAMES
+)
 
 #: The sections the implementation is split across, beyond its default source file.
 #:
@@ -95,6 +106,11 @@ def cpp_file_names(plan: Plan) -> list[str]:
     ]
 
 
+def _wire(plan: Plan, alias: str) -> str:
+    """How the generated C++ names one of the remote's packet-header widths."""
+    return plan.spelling.namer.cpp(alias)
+
+
 def _section_file(plan: Plan, section: str) -> str:
     """The source file base name a section's definitions go to."""
     return f"{plan.config.component}{section}"
@@ -116,6 +132,10 @@ def render_implementation(plan: Plan) -> CppDocBuilder:
         else f"{config.component}.hpp"
     )
     doc.include(config.base_header)
+    # The base class includes a generated type's header only where a declared member or a
+    # hooked port's formal has that type, and the packet-header widths are declared whether
+    # anything mirrors them or not.  This class names all five, so it asks for them itself.
+    doc.include(*_wire_type_headers(plan))
     supplementals = cpp_file_names(plan)
     # Before the component's own header, deliberately.  fpp-to-cpp writes
     # "RefProxy::Svc_VersionStatus" inside a generated type's header, which resolves as
@@ -163,6 +183,15 @@ _GENERATED_HEADERS: tuple[tuple[type, str], ...] = (
 )
 
 
+def _wire_type_headers(plan: Plan) -> list[str]:
+    """The generated headers for the remote's packet-header aliases."""
+    prefix = plan.config.include_prefix
+    names = [
+        f"{plan.spelling.namer.cpp_name(alias)}AliasAc.hpp" for alias in WIRE_TYPE_NAMES
+    ]
+    return [f"{prefix}/{name}" if prefix else name for name in names]
+
+
 def _unreferenced_type_headers(plan: Plan) -> list[str]:
     """Headers for types the decoders use but the base class does not include.
 
@@ -193,7 +222,7 @@ def _unreferenced_type_headers(plan: Plan) -> list[str]:
         )
         if suffix is None:
             continue
-        name = f"{plan.spelling.namer.flat(channel.source.type.name)}{suffix}.hpp"
+        name = f"{plan.spelling.namer.cpp_name(channel.source.type.name)}{suffix}.hpp"
         headers[f"{prefix}/{name}" if prefix else name] = None
     return list(headers)
 
@@ -292,23 +321,13 @@ def _alias_width(plan: Plan, name: str) -> int | None:
 
 
 def _types(cls: ClassBuilder, plan: Plan) -> None:
-    """The remote's header widths and descriptor values, as this component sees them."""
-    platform = plan.dictionary.platform
-    with cls.private("Remote wire format"):
-        cls.doc_comment(
-            "Widths the remote deployment serialized its packet headers with, taken\n"
-            "from its dictionary.  Deliberately not the local FwOpcodeType and friends:\n"
-            "a proxy has to agree with the sender, not with its own platform."
-        )
-        for alias, ref in (
-            ("PacketDescriptor", platform.packet_descriptor),
-            ("RemoteOpcode", platform.opcode),
-            ("RemoteEventId", platform.event_id),
-            ("RemoteChannelId", platform.channel_id),
-            ("RemotePacketId", platform.packetize_id),
-        ):
-            cls.using(alias, ref.name)
+    """The remote's descriptor values, and the one size derived from its header widths.
 
+    The widths themselves are not here: they are the component's own ``FwOpcodeType`` and
+    friends, declared in the model and reached through the autocoded aliases, so this class
+    has nothing to define for them.
+    """
+    with cls.private("Remote wire format"):
         descriptors = cls.enum(
             comment="Packet descriptors, valued as the remote's ComCfg.Apid defines "
             "them.\nThose values are project-configurable, so the local enum is not "
@@ -320,7 +339,8 @@ def _types(cls: ClassBuilder, plan: Plan) -> None:
 
         cls.enum(comment_above=True).constant(
             "PACKET_HEADER_SIZE",
-            "sizeof(PacketDescriptor) + sizeof(RemotePacketId) + "
+            f"sizeof({_wire(plan, _DESCRIPTOR_TYPE)}) + "
+            f"sizeof({_wire(plan, _PACKET_ID_TYPE)}) + "
             "Fw::Time::SERIALIZED_SIZE",
             comment="Bytes before the first channel slot of a packetized telemetry "
             "packet",
@@ -413,7 +433,7 @@ def _com_in_body(body: Body, plan: Plan) -> None:
         )
         b.line("data.resetDeser();")
         b.blank()
-        b.line("PacketDescriptor _descriptor = 0;")
+        b.line(f"{_wire(plan, _DESCRIPTOR_TYPE)} {_DESCRIPTOR} = 0;")
         b.line("const Fw::SerializeStatus _status = data.deserializeTo(_descriptor);")
         with b.if_(f"{_STATUS} != {_OK}"):
             b.line(f"this->recordDecodeError(0, 0, {_STATUS});")
@@ -605,13 +625,13 @@ def _decode_event(cls: ClassBuilder, plan: Plan) -> None:
         comment="Decode one event packet and re-emit it as this component's own event\n"
         "\n"
         "Layout: the descriptor is already consumed, leaving\n"
-        "[RemoteEventId][Fw::Time][argument...].",
+        f"[{_EVENT_ID_TYPE}][Fw::Time][argument...].",
     )
     function.param(
         "Fw::ComBuffer&", _PACKET, comment="The packet, positioned after the descriptor"
     )
     with function.body as b:
-        b.line(f"RemoteEventId {_ID} = 0;")
+        b.line(f"{_wire(plan, _EVENT_ID_TYPE)} {_ID} = 0;")
         b.line(f"Fw::SerializeStatus {_STATUS} = {_PACKET}.deserializeTo({_ID});")
         with b.if_(f"{_STATUS} != {_OK}"):
             b.line(f"this->recordDecodeError(DESCRIPTOR_LOG, 0, {_STATUS});")
@@ -716,15 +736,16 @@ def _decode_channels(cls: ClassBuilder, plan: Plan) -> None:
         "decodeChannels",
         comment="Decode a channelized telemetry packet and re-emit its channels\n"
         "\n"
-        "Svc::TlmChan fills one buffer with as many [RemoteChannelId][Fw::Time][value]\n"
-        "triples as fit, so this reads until the buffer runs out rather than once.",
+        f"Svc::TlmChan fills one buffer with as many\n"
+        f"[{_CHANNEL_ID_TYPE}][Fw::Time][value] triples as fit, so this reads until the\n"
+        f"buffer runs out rather than once.",
     )
     function.param(
         "Fw::ComBuffer&", _PACKET, comment="The packet, positioned after the descriptor"
     )
     with function.body as b:
         with b.while_(f"{_PACKET}.getDeserializeSizeLeft() > 0"):
-            b.line(f"RemoteChannelId {_ID} = 0;")
+            b.line(f"{_wire(plan, _CHANNEL_ID_TYPE)} {_ID} = 0;")
             b.line(f"Fw::SerializeStatus {_STATUS} = {_PACKET}.deserializeTo({_ID});")
             with b.if_(f"{_STATUS} != {_OK}"):
                 b.line(f"this->recordDecodeError(DESCRIPTOR_TELEM, 0, {_STATUS});")
@@ -799,13 +820,13 @@ def _decode_telemetry_packet(cls: ClassBuilder, plan: Plan) -> None:
         comment="Dispatch a packetized telemetry packet to its layout\n"
         "\n"
         "Layout: the descriptor is already consumed, leaving\n"
-        "[RemotePacketId][Fw::Time][channel slot...].",
+        f"[{_PACKET_ID_TYPE}][Fw::Time][channel slot...].",
     )
     function.param(
         "Fw::ComBuffer&", _PACKET, comment="The packet, positioned after the descriptor"
     )
     with function.body as b:
-        b.line(f"RemotePacketId {_ID} = 0;")
+        b.line(f"{_wire(plan, _PACKET_ID_TYPE)} {_ID} = 0;")
         b.line(f"Fw::SerializeStatus {_STATUS} = {_PACKET}.deserializeTo({_ID});")
         with b.if_(f"{_STATUS} != {_OK}"):
             b.line(f"this->recordDecodeError(DESCRIPTOR_PACKETIZED_TLM, 0, {_STATUS});")
@@ -957,11 +978,11 @@ def _begin_command_packet(cls: ClassBuilder, plan: Plan) -> None:
         "matches on.",
     )
     function.param("Fw::ComBuffer&", "packet", comment="The packet to write into")
-    function.param("RemoteOpcode", "opcode", comment="The remote's opcode")
+    function.param(_wire(plan, _OPCODE_TYPE), "opcode", comment="The remote's opcode")
     with function.body as b:
         b.line(
             "Fw::SerializeStatus status = packet.serializeFrom("
-            "static_cast<PacketDescriptor>(DESCRIPTOR_COMMAND));"
+            f"static_cast<{_wire(plan, _DESCRIPTOR_TYPE)}>(DESCRIPTOR_COMMAND));"
         )
         with b.if_(f"status == {_OK}"):
             b.line("status = packet.serializeFrom(opcode);")

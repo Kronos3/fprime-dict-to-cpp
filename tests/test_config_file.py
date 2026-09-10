@@ -548,9 +548,8 @@ class TestCli:
             "quiet: true\n"
         )
         assert main(["--config", str(path)]) == 0
-        model = (output / "P.fpp").read_text()
-        assert "passive component P {" in model
-        assert "Ref_dpDemo_SelectColor" in model
+        assert "passive component P {" in (output / "P.fpp").read_text()
+        assert "Ref_dpDemo_SelectColor" in (output / "PCommands.fppi").read_text()
 
     def test_a_flag_beats_the_file(
         self, write, tmp_path: Path, ref_path: Path  # type: ignore[no-untyped-def]
@@ -654,11 +653,12 @@ class TestCli:
             "  Ref.DpDemo.ColorEnum: DemoColor\n"
         )
         assert main(["--config", str(path)]) == 0
-        model = (output / "RefProxy.fpp").read_text()
-        assert "async command SelectDemoColor(" in model
-        assert "dpDemo_SelectColor" not in model
-        assert "enum DemoColor" in (output / "RefProxyTypes.fpp").read_text()
-        assert "Ref_DpDemo_ColorEnum" not in model
+        commands = (output / "RefProxyCommands.fppi").read_text()
+        types = (output / "RefProxyTypes.fppi").read_text()
+        assert "async command SelectDemoColor(" in commands
+        assert "dpDemo_SelectColor" not in commands
+        assert "enum DemoColor" in types
+        assert "Ref_DpDemo_ColorEnum" not in commands + types
         # The C++ has to agree with the model, or the base class will not be overridden.
         assert (
             "SelectDemoColor_cmdHandler"

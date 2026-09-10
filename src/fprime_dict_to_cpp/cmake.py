@@ -4,6 +4,11 @@ Nothing is listed under ``DEPENDS``.  F Prime derives a module's dependencies fr
 FPP model, so ``Fw.Com``, ``Fw.Log`` and -- for a queued component -- ``Svc.Sched`` are
 picked up from the ``AUTOCODER_INPUTS`` without being named again here.  Naming them
 twice is how a generated file goes stale the first time the model changes.
+
+Nor are the ``.fppi`` fragments listed.  ``fpp-depend`` reports them as included files and
+F Prime's build makes them regenerators of the same targets, so editing one still
+re-autocodes the component; naming one as an input would instead have the autocoder try to
+process component members with no component around them.
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ def render_cmake(plan: Plan) -> str:
     config = plan.config
     component = config.component
 
-    autocoder_inputs = [f"{component}Types.fpp", f"{component}.fpp"]
+    autocoder_inputs = [f"{component}.fpp"]
     sources = [f"{component}.cpp", *(f"{name}.cpp" for name in cpp_file_names(plan))]
     headers = [f"{component}.hpp"]
 
@@ -34,7 +39,8 @@ def render_cmake(plan: Plan) -> str:
         f'#     add_fprime_subdirectory("${{CMAKE_CURRENT_LIST_DIR}}/{component}")',
         "#",
         "# Module dependencies are derived from the FPP model, so they are not listed",
-        "# again below.",
+        f"# again below.  Neither are the .fppi fragments {component}.fpp includes:",
+        "# the build tracks them as included files already.",
         "####",
         "",
         "register_fprime_module(",

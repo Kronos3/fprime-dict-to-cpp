@@ -9,6 +9,12 @@
 
 #include "RefPorts/RefPortsComponentAc.hpp"
 
+#include "RefPorts/RefPorts_FwPacketDescriptorTypeAliasAc.hpp"
+#include "RefPorts/RefPorts_FwOpcodeTypeAliasAc.hpp"
+#include "RefPorts/RefPorts_FwEventIdTypeAliasAc.hpp"
+#include "RefPorts/RefPorts_FwChanIdTypeAliasAc.hpp"
+#include "RefPorts/RefPorts_FwTlmPacketizeIdTypeAliasAc.hpp"
+
 namespace RefPorts {
 
   //! Proxies the Ref.Ref dictionary.
@@ -28,20 +34,6 @@ namespace RefPorts {
       // Remote wire format
       // ----------------------------------------------------------------------
 
-      //! Widths the remote deployment serialized its packet headers with, taken
-      //! from its dictionary.  Deliberately not the local FwOpcodeType and friends:
-      //! a proxy has to agree with the sender, not with its own platform.
-
-      using PacketDescriptor = U16;
-
-      using RemoteOpcode = U32;
-
-      using RemoteEventId = U32;
-
-      using RemoteChannelId = U32;
-
-      using RemotePacketId = U16;
-
       //! Packet descriptors, valued as the remote's ComCfg.Apid defines them.
       //! Those values are project-configurable, so the local enum is not necessarily
       //! the same one.
@@ -54,7 +46,7 @@ namespace RefPorts {
 
       enum {
         //! Bytes before the first channel slot of a packetized telemetry packet
-        PACKET_HEADER_SIZE = sizeof(PacketDescriptor) + sizeof(RemotePacketId) + Fw::Time::SERIALIZED_SIZE,
+        PACKET_HEADER_SIZE = sizeof(::RefPorts::RefPorts_FwPacketDescriptorType) + sizeof(::RefPorts::RefPorts_FwTlmPacketizeIdType) + Fw::Time::SERIALIZED_SIZE,
       };
 
     public:
@@ -100,7 +92,7 @@ namespace RefPorts {
       //! Hooked onto Ref.dpDemo.SelectColor.
       void dpDemo_SelectColor_cmdIn_handler(
           FwIndexType portNum, //!< The port number
-          const ::RefPorts::Ref_DpDemo_ColorEnum& color //!<
+          const ::RefPorts::RefPorts_Ref_DpDemo_ColorEnum& color //!<
       ) override;
 
       //! Forwards CdhCore.cmdDisp.CMD_NO_OP to the remote deployment.
@@ -124,7 +116,7 @@ namespace RefPorts {
       //! Decode one event packet and re-emit it as this component's own event
       //!
       //! Layout: the descriptor is already consumed, leaving
-      //! [RemoteEventId][Fw::Time][argument...].
+      //! [FwEventIdType][Fw::Time][argument...].
       void decodeEvent(
           Fw::ComBuffer& _packet //!< The packet, positioned after the descriptor
       );
@@ -138,7 +130,7 @@ namespace RefPorts {
       //! Dispatch a packetized telemetry packet to its layout
       //!
       //! Layout: the descriptor is already consumed, leaving
-      //! [RemotePacketId][Fw::Time][channel slot...].
+      //! [FwTlmPacketizeIdType][Fw::Time][channel slot...].
       void decodeTelemetryPacket(
           Fw::ComBuffer& _packet //!< The packet, positioned after the descriptor
       );
@@ -164,7 +156,7 @@ namespace RefPorts {
       //! matches on.
       Fw::SerializeStatus beginCommandPacket(
           Fw::ComBuffer& packet, //!< The packet to write into
-          RemoteOpcode opcode //!< The remote's opcode
+          ::RefPorts::RefPorts_FwOpcodeType opcode //!< The remote's opcode
       ) const;
 
       //! Send a command packet built by a hooked input port

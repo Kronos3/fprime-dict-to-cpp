@@ -24,16 +24,19 @@ fprime-dict-to-cpp RefTopologyDictionary.json -o Ref/RefProxy
 
 ```
 RefProxy: 116 commands, 311 events, 163 telemetry channels, 34 telemetry packets
-  63 type definitions (of 99 in the dictionary; the rest are unreachable from any mirrored member)
+  65 type definitions (5 packet-header widths, and 60 of the 99 in the dictionary; the rest are unreachable from any mirrored member)
   wrote     Ref/RefProxy/CMakeLists.txt
-  wrote     Ref/RefProxy/RefProxy.fpp
-  wrote     Ref/RefProxy/RefProxyTypes.fpp
-  wrote     Ref/RefProxy/RefProxy.hpp
   wrote     Ref/RefProxy/RefProxy.cpp
+  wrote     Ref/RefProxy/RefProxy.fpp
+  wrote     Ref/RefProxy/RefProxy.hpp
   wrote     Ref/RefProxy/RefProxyCommands.cpp
+  wrote     Ref/RefProxy/RefProxyCommands.fppi
   wrote     Ref/RefProxy/RefProxyEvents.cpp
-  wrote     Ref/RefProxy/RefProxyTelemetry.cpp
+  wrote     Ref/RefProxy/RefProxyEvents.fppi
   wrote     Ref/RefProxy/RefProxyPackets.cpp
+  wrote     Ref/RefProxy/RefProxyTelemetry.cpp
+  wrote     Ref/RefProxy/RefProxyTelemetry.fppi
+  wrote     Ref/RefProxy/RefProxyTypes.fppi
 
 Add it to the build with:
   add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/RefProxy")
@@ -58,19 +61,36 @@ or [`--cross-check`](#other-options) (`[gds]`, for `fprime-gds`).
 
 | File | What it is |
 | --- | --- |
-| `<Component>.fpp` | the component: ports, and one declaration per mirrored command, event and channel |
-| `<Component>Types.fpp` | the remote's enums, arrays, structs and aliases, re-rooted into the component's module, plus a port type per hooked member |
+| `<Component>.fpp` | the component itself: its ports, a port type per hooked member, and an `include` of each fragment below |
+| `<Component>Types.fppi` | the remote's packet-header widths, and its enums, arrays, structs and aliases |
+| `<Component>Commands.fppi` | one declaration per mirrored command |
+| `<Component>Events.fppi` | one per mirrored event, plus the proxy's own diagnostic events |
+| `<Component>Telemetry.fppi` | one per mirrored channel, plus the proxy's own diagnostic channels |
 | `<Component>.hpp` | the implementation class, deriving from the autocoded `<Component>ComponentBase` |
 | `<Component>.cpp` | constructor, packet dispatch, and the shared helpers |
 | `<Component>Commands.cpp` | one handler per forwarded command |
 | `<Component>Events.cpp` | the event decoder |
 | `<Component>Telemetry.cpp` | the channelized-telemetry decoder |
 | `<Component>Packets.cpp` | one decoder per packetized-telemetry layout |
-| `CMakeLists.txt` | `register_fprime_module`, listing both `.fpp` files as autocoder inputs |
+| `CMakeLists.txt` | `register_fprime_module`, listing `<Component>.fpp` as the autocoder input |
 
-The implementation is split across translation units because a dictionary the size of
-`Ref`'s produces several thousand lines of decoder, and one compilation unit holding all
-of it is slow to build and awkward to read.
+Both halves are split up because a dictionary the size of `Ref`'s produces several
+thousand declarations and several thousand lines of decoder, and one file holding all of
+either is slow to build and awkward to read.  What is left in `<Component>.fpp` is the
+part a reader has to see all at once in order to wire the component into a topology.
+
+The `.fppi` fragments are not autocoder inputs: `fpp-depend` reports them as included
+files of `<Component>.fpp` and F Prime's build makes them regenerators of the same
+targets, so editing one still re-autocodes the component.  A fragment is component members
+with no component around them, so naming one as an input would not work.
+
+Everything except the port types is declared *inside* the component, which is what gives
+each generated name and file a `<Component>_` prefix: `Ref.DpDemo.ColorEnum` reaches C++ as
+`RefProxy::RefProxy_Ref_DpDemo_ColorEnum`, in `RefProxy_Ref_DpDemo_ColorEnumEnumAc.hpp`.
+That prefix is why the generated component can name the remote's widths outright --
+`RefProxy_FwOpcodeType` and friends, declared in the model rather than aliased in the C++.
+A port definition cannot be a component member, so those stay beside the component and
+name its types through it (`RefProxy.Ref_DpDemo_ColorEnum`).
 
 ### Ports
 
@@ -301,14 +321,18 @@ packet-ports:
 leaving the line out, so a hook can be switched off without losing the note about it.
 
 **The port's type is generated, not named.** One `port` definition per hooked member goes
-into `<Component>Types.fpp`, with that member's own formals:
+into `<Component>.fpp`, beside the component, with that member's own formals:
 
 ```
-port dpDemo_SelectColor_CmdPort(color: Ref_DpDemo_ColorEnum)
-port cmdDisp_OpCodeDispatched_EventPort(Opcode: FwOpcodeType, $port: I32)
+port dpDemo_SelectColor_CmdPort(color: RefProxy.Ref_DpDemo_ColorEnum)
+port cmdDisp_OpCodeDispatched_EventPort(Opcode: RefProxy.FwOpcodeType, $port: I32)
 port cmdDisp_CommandsDispatched_TlmPort(value: U32, timeTag: Fw.Time)
 port CDH_PacketPort(cmdDisp_CommandsDispatched: U32, ..., timeTag: Fw.Time)
 ```
+
+FPP has no `port` definition among a component's members, which is why these are the one
+thing declared outside the component and the only place a mirrored type is named through
+it.
 
 which is what makes a hook correct by construction — a port named after a type the project
 already has would only be checked by `fpp-check`, long after the mistake was made.
@@ -360,7 +384,7 @@ on whether it also has a port:
   combination that gives a proxy nothing but port traffic: `omit: ["*"]` plus the hooks you
   want.
 * **omitted, without a port** — not decoded at all. Its argument types come out of
-  `<Component>Types.fpp` with it, which is most of why a trimmed component is so much
+  `<Component>Types.fppi` with it, which is most of why a trimmed component is so much
   smaller.
 
 Two consequences worth knowing:
@@ -488,7 +512,7 @@ every event from the component's own time port — so a relayed event carries th
 receive time. The remote's timestamp is still read off the wire, because the arguments
 after it have to be found, and then discarded.
 
-### Type names are flattened
+### Type names are flattened, and declared inside the component
 
 `Ref.DpDemo.ColorEnum` is re-declared as `Ref_DpDemo_ColorEnum`, not as a nested module
 path. `fpp-to-cpp` derives a generated file name from a type's *leaf* name plus its
@@ -500,7 +524,15 @@ Flattening is unambiguous rather than pretty, and the result is what every use s
 generated FPP and C++ reads, so a type worth naming can be named outright — see
 [naming one thing at a time](#naming-one-thing-at-a-time).
 
-Only types **reachable** from a mirrored member are emitted — 63 of `Ref`'s 99. An
+The definitions are members of the component, not of the module beside it, so `fpp-to-cpp`
+prefixes each generated name and file with the component's: the enum above reaches C++ as
+`RefProxy::RefProxy_Ref_DpDemo_ColorEnum`, in `RefProxy_Ref_DpDemo_ColorEnumEnumAc.hpp`.
+That keeps a re-declared framework type such as `FwSizeType` from producing a file whose
+name matches the framework's own, and it is what lets the generated C++ read a packet
+header through `RefProxy_FwOpcodeType` rather than through an alias of its own invention.
+
+Only types **reachable** from a mirrored member are emitted — 60 of `Ref`'s 99, plus the
+five packet-header widths, which are declared whether anything mirrors them or not. An
 unused definition costs a generated C++ file pair, and one of them actively breaks the
 build: a stray `FwSizeStoreType` shadows FPP's implied use of that name and takes every
 string in the module down with it.

@@ -7,12 +7,12 @@
 #     add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/RefPorts")
 #
 # Module dependencies are derived from the FPP model, so they are not listed
-# again below.
+# again below.  Neither are the .fppi fragments RefPorts.fpp includes:
+# the build tracks them as included files already.
 ####
 
 register_fprime_module(
   AUTOCODER_INPUTS
-    "${CMAKE_CURRENT_LIST_DIR}/RefPortsTypes.fpp"
     "${CMAKE_CURRENT_LIST_DIR}/RefPorts.fpp"
   SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/RefPorts.cpp"

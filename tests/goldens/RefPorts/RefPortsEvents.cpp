@@ -15,7 +15,7 @@ namespace RefPorts {
   void RefPorts ::
     decodeEvent(Fw::ComBuffer& _packet)
   {
-    RemoteEventId _identifier = 0;
+    ::RefPorts::RefPorts_FwEventIdType _identifier = 0;
     Fw::SerializeStatus _status = _packet.deserializeTo(_identifier);
     if (_status != Fw::FW_SERIALIZE_OK) {
       this->recordDecodeError(DESCRIPTOR_LOG, 0, _status);
@@ -36,7 +36,7 @@ namespace RefPorts {
     switch (_identifier) {
       case 0x1000001: {
         // CdhCore.cmdDisp.OpCodeDispatched
-        ::RefPorts::FwOpcodeType Opcode = 0;
+        ::RefPorts::RefPorts_FwOpcodeType Opcode = 0;
         _status = _packet.deserializeTo(Opcode);
         I32 port = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {

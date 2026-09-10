@@ -18,11 +18,19 @@ EXPECTED = {
     "RefProxy.fpp",
     "RefProxy.hpp",
     "RefProxyCommands.cpp",
+    "RefProxyCommands.fppi",
     "RefProxyEvents.cpp",
+    "RefProxyEvents.fppi",
     "RefProxyPackets.cpp",
     "RefProxyTelemetry.cpp",
-    "RefProxyTypes.fpp",
+    "RefProxyTelemetry.fppi",
+    "RefProxyTypes.fppi",
 }
+
+#: The files CMakeLists.txt names.  The ``.fppi`` fragments are not among them: the build
+#: tracks them as included files of ``RefProxy.fpp``, and naming one as an autocoder input
+#: would have the autocoder process component members with no component around them.
+IN_CMAKE = {name for name in EXPECTED if not name.endswith(".fppi")}
 
 
 @pytest.fixture
@@ -131,8 +139,10 @@ class TestCMakeListsIsKept:
 class TestCMakeLists:
     def test_lists_exactly_the_files_that_were_written(self, written) -> None:  # type: ignore[no-untyped-def]
         text = (written.directory / "CMakeLists.txt").read_text()
-        for name in EXPECTED - {"CMakeLists.txt"}:
+        for name in IN_CMAKE - {"CMakeLists.txt"}:
             assert name in text, name
+        for name in EXPECTED - IN_CMAKE:
+            assert name not in text, name
 
     def test_uses_the_current_register_fprime_module_keywords(self, written) -> None:  # type: ignore[no-untyped-def]
         text = (written.directory / "CMakeLists.txt").read_text()
@@ -140,11 +150,11 @@ class TestCMakeLists:
         for keyword in ("AUTOCODER_INPUTS", "SOURCES", "HEADERS"):
             assert f"  {keyword}\n" in text
 
-    def test_lists_both_fpp_files_as_autocoder_inputs(self, written) -> None:  # type: ignore[no-untyped-def]
+    def test_lists_only_the_model_file_as_an_autocoder_input(self, written) -> None:  # type: ignore[no-untyped-def]
         text = (written.directory / "CMakeLists.txt").read_text()
         inputs = text.split("AUTOCODER_INPUTS")[1].split("SOURCES")[0]
-        assert "RefProxyTypes.fpp" in inputs
         assert "RefProxy.fpp" in inputs
+        assert ".fppi" not in inputs
 
     def test_does_not_restate_dependencies(self, written) -> None:  # type: ignore[no-untyped-def]
         # F Prime derives them from the FPP model; naming them again is how a generated
@@ -196,9 +206,8 @@ class TestCli:
             )
             == 0
         )
-        model = (output / "P.fpp").read_text()
-        assert "passive component P {" in model
-        assert "Ref_dpDemo_SelectColor" in model
+        assert "passive component P {" in (output / "P.fpp").read_text()
+        assert "Ref_dpDemo_SelectColor" in (output / "PCommands.fppi").read_text()
 
     def test_naming_knobs_override_the_preset(
         self, tmp_path: Path, ref_path: Path
@@ -217,7 +226,7 @@ class TestCli:
                 "full",
             ]
         )
-        assert "Ref_dpDemo_SelectColor" in (output / "P.fpp").read_text()
+        assert "Ref_dpDemo_SelectColor" in (output / "PCommands.fppi").read_text()
 
     def test_no_diagnostics_and_no_packetized(
         self, tmp_path: Path, ref_path: Path
@@ -234,8 +243,8 @@ class TestCli:
                 "--no-packetized",
             ]
         )
-        model = (output / "P.fpp").read_text()
-        assert "ProxyDecodeError" not in model
+        events = (output / "PEvents.fppi").read_text()
+        assert "ProxyDecodeError" not in events
         assert not (output / "PPackets.cpp").exists()
 
     def test_type_prefix_reaches_the_types(
@@ -243,7 +252,7 @@ class TestCli:
     ) -> None:
         output = tmp_path / "P"
         main([str(ref_path), "-o", str(output), "-c", "P", "--type-prefix", "Rp_"])
-        assert "Rp_Ref_DpDemo_ColorEnum" in (output / "PTypes.fpp").read_text()
+        assert "Rp_Ref_DpDemo_ColorEnum" in (output / "PTypes.fppi").read_text()
 
     def test_missing_dictionary_is_an_error(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]

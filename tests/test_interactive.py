@@ -359,7 +359,7 @@ class TestWithAConfigFileToStartFrom:
         written = (output / "RefProxy.yaml").read_text()
         assert "\nnames:\n  Ref.dpDemo.SelectColor: SelectDemoColor\n" in written
         assert "\ntype-names:\n  Ref.DpDemo.ColorEnum: DemoColor\n" in written
-        assert "SelectDemoColor" in (output / "RefProxy.fpp").read_text()
+        assert "SelectDemoColor" in (output / "RefProxyCommands.fppi").read_text()
 
         # And the file it wrote regenerates what it just generated.
         before = (output / "RefProxy.fpp").read_text()

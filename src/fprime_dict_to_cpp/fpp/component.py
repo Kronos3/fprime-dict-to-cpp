@@ -7,16 +7,27 @@ of generating a component rather than tunnelling opaque packets.
 Ids and opcodes are **local and dense**.  F Prime offsets them by the base id the target
 topology assigns this instance; the remote's absolute values live only in the generated
 C++, which matches them against the wire.
+
+A dictionary the size of Ref's produces thousands of declarations, so the members are
+split into ``.fppi`` fragments -- one each for the types, the commands, the events and the
+telemetry -- which ``<Component>.fpp`` ``include``\\ s inside the component.  What is left
+in the component itself is its ports, which is the part a reader has to see all at once in
+order to wire the thing into a topology.
 """
 
 from __future__ import annotations
 
 from ..model import ComponentKind, FormalParam, Limit
-from ..plan import ChannelPlan, CommandPlan, EventPlan, Plan
+from ..plan import ChannelPlan, CommandPlan, EventPlan, Plan, PortPlan
 from .keywords import escape
 from .writer import FppWriter, string_literal
 
-__all__ = ["render_component"]
+__all__ = [
+    "render_commands",
+    "render_component",
+    "render_events",
+    "render_telemetry",
+]
 
 
 def render_component(plan: Plan) -> str:
@@ -25,16 +36,42 @@ def render_component(plan: Plan) -> str:
     _preamble(writer, plan)
     config = plan.config
     with writer.module(config.namespace):
+        _port_types(writer, plan)
         writer.annotate(_component_annotation(plan))
         with writer.block(
             f"{config.kind.value} component {escape(config.component)} {{"
         ):
+            _include(writer, plan, "Types", "Types")
             _ports(writer, plan)
-            _commands(writer, plan)
-            _events(writer, plan)
-            _telemetry(writer, plan)
-            _diagnostics(writer, plan)
+            _include(writer, plan, "Commands", "Commands")
+            _include(writer, plan, "Events", "Events")
+            _include(writer, plan, "Telemetry", "Telemetry")
     return writer.render()
+
+
+def _include(writer: FppWriter, plan: Plan, section: str, banner: str) -> None:
+    """Include one member fragment, if this plan has anything to put in it."""
+    if section not in fragments(plan):
+        return
+    writer.banner(banner)
+    writer.line(f'include "{plan.config.component}{section}.fppi"')
+
+
+def fragments(plan: Plan) -> tuple[str, ...]:
+    """The member fragments this plan populates, in the order the component includes them.
+
+    A fragment with nothing in it is not written at all, so a dictionary whose commands are
+    all omitted does not leave an empty ``<Component>Commands.fppi`` behind for a reader to
+    wonder about.  The types fragment is always there: the packet-header widths are
+    declared whatever else is.
+    """
+    populated = {
+        "Types": True,
+        "Commands": bool(plan.declared_commands),
+        "Events": bool(plan.declared_events) or bool(plan.diagnostic_event_ids),
+        "Telemetry": bool(plan.declared_channels) or bool(plan.diagnostic_channel_ids),
+    }
+    return tuple(section for section, present in populated.items() if present)
 
 
 def _preamble(writer: FppWriter, plan: Plan) -> None:
@@ -88,6 +125,46 @@ def _component_annotation(plan: Plan) -> str:
 # ---------------------------------------------------------------------------
 # Ports
 # ---------------------------------------------------------------------------
+
+
+def _port_types(writer: FppWriter, plan: Plan) -> None:
+    """The port types the hooked ports take, declared beside the component.
+
+    Beside rather than inside because FPP has no port definition among a component's
+    members, which is also why these formals name the mirrored types through the
+    component.
+
+    One port type per hooked member rather than one shared type per kind: the formals *are*
+    the member's, so a port that mirrors a command's arguments cannot be handed the wrong
+    ones.
+    """
+    ports = plan.ports
+    if not ports:
+        return
+    writer.comment(
+        "One port type per hooked member, its formals taken from that member.  These are\n"
+        "what lets flight software send a remote command, or hear about a remote event,\n"
+        "without going through the ground interface."
+    )
+    for port in ports:
+        writer.blank()
+        _port_type(writer, port)
+    writer.blank()
+
+
+def _port_type(writer: FppWriter, port: PortPlan) -> None:
+    params = []
+    for param in port.params:
+        text = f"{escape(param.name)}: {param.fpp}"
+        if param.annotation:
+            text = f"{text} @< {' '.join(param.annotation.split())}"
+        params.append(text)
+    writer.declaration(
+        f"port {escape(port.type_name)}",
+        params,
+        (),
+        annotation=f"{port.annotation}\n[{port.origin}]",
+    )
 
 
 def _ports(writer: FppWriter, plan: Plan) -> None:
@@ -152,8 +229,8 @@ def _hooked_ports(writer: FppWriter, plan: Plan) -> None:
     writer.banner("Hooked ports")
     writer.comment(
         "Ports onto individual members of the remote's interface, asked for by name in\n"
-        "this component's configuration.  Their port types are in "
-        f"{plan.config.component}Types.fpp."
+        "this component's configuration.  Their port types are declared above, beside\n"
+        "this component."
     )
     writer.blank()
     for port in ports:
@@ -167,6 +244,21 @@ def _hooked_ports(writer: FppWriter, plan: Plan) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _fragment_preamble(writer: FppWriter, plan: Plan, what: str) -> None:
+    """The header every member fragment carries, naming what includes it."""
+    metadata = plan.dictionary.metadata
+    writer.comment(
+        f"{plan.config.component}'s {what}, generated by fprime-dict-to-cpp.\n"
+        f"\n"
+        f"Included by {plan.config.component}.fpp, inside the component itself.\n"
+        f"\n"
+        f"Source deployment: {metadata.deployment_name}\n"
+        f"\n"
+        f"Do not edit: regenerate from the dictionary instead."
+    )
+    writer.blank()
+
+
 def _params(plan: Plan, params: tuple[FormalParam, ...]) -> list[str]:
     """Render formal parameters, escaping any name FPP would read as a keyword."""
     rendered = []
@@ -178,13 +270,14 @@ def _params(plan: Plan, params: tuple[FormalParam, ...]) -> list[str]:
     return rendered
 
 
-def _commands(writer: FppWriter, plan: Plan) -> None:
-    if not plan.declared_commands:
-        return
-    writer.banner("Commands")
+def render_commands(plan: Plan) -> str:
+    """Render the ``<Component>Commands.fppi`` contents for ``plan``."""
+    writer = FppWriter()
+    _fragment_preamble(writer, plan, "commands")
     for command in plan.declared_commands:
         _command(writer, plan, command)
         writer.blank()
+    return writer.render()
 
 
 def _command(writer: FppWriter, plan: Plan, command: CommandPlan) -> None:
@@ -203,13 +296,15 @@ def _command(writer: FppWriter, plan: Plan, command: CommandPlan) -> None:
     )
 
 
-def _events(writer: FppWriter, plan: Plan) -> None:
-    if not plan.declared_events:
-        return
-    writer.banner("Events")
+def render_events(plan: Plan) -> str:
+    """Render the ``<Component>Events.fppi`` contents for ``plan``."""
+    writer = FppWriter()
+    _fragment_preamble(writer, plan, "events")
     for event in plan.declared_events:
         _event(writer, plan, event)
         writer.blank()
+    _diagnostic_events(writer, plan)
+    return writer.render()
 
 
 def _event(writer: FppWriter, plan: Plan, event: EventPlan) -> None:
@@ -232,13 +327,15 @@ def _event(writer: FppWriter, plan: Plan, event: EventPlan) -> None:
     )
 
 
-def _telemetry(writer: FppWriter, plan: Plan) -> None:
-    if not plan.declared_channels:
-        return
-    writer.banner("Telemetry")
+def render_telemetry(plan: Plan) -> str:
+    """Render the ``<Component>Telemetry.fppi`` contents for ``plan``."""
+    writer = FppWriter()
+    _fragment_preamble(writer, plan, "telemetry channels")
     for channel in plan.declared_channels:
         _channel(writer, plan, channel)
         writer.blank()
+    _diagnostic_channels(writer, plan)
+    return writer.render()
 
 
 def _channel(writer: FppWriter, plan: Plan, channel: ChannelPlan) -> None:
@@ -261,23 +358,24 @@ def _channel(writer: FppWriter, plan: Plan, channel: ChannelPlan) -> None:
     )
 
 
-def _diagnostics(writer: FppWriter, plan: Plan) -> None:
-    """The proxy's own health telemetry and events.
+#: What the proxy's own health telemetry and events say about the link.
+#:
+#: Fixed rather than derived: these describe the *link*, which no dictionary knows
+#: anything about.  The argument types are deliberately widened to ``U32`` so the
+#: declarations do not change with the remote's descriptor or id widths.
+_DIAGNOSTIC_PREAMBLE = (
+    "This component's own health, not mirrored from the remote dictionary.\n"
+    "Without it, a link dropping or garbling packets looks the same as a quiet one."
+)
 
-    Fixed rather than derived: these describe the *link*, which no dictionary knows
-    anything about.  The argument types are deliberately widened to ``U32`` so the
-    declarations do not change with the remote's descriptor or id widths.
-    """
+
+def _diagnostic_channels(writer: FppWriter, plan: Plan) -> None:
     channel_ids = plan.diagnostic_channel_ids
-    event_ids = plan.diagnostic_event_ids
-    if not channel_ids and not event_ids:
+    if not channel_ids:
         return
 
     writer.banner("Proxy diagnostics")
-    writer.comment(
-        "This component's own health, not mirrored from the remote dictionary.\n"
-        "Without it, a link dropping or garbling packets looks the same as a quiet one."
-    )
+    writer.comment(_DIAGNOSTIC_PREAMBLE)
     writer.blank()
 
     for name, annotation in (
@@ -301,6 +399,16 @@ def _diagnostics(writer: FppWriter, plan: Plan) -> None:
             annotation=annotation,
         )
         writer.blank()
+
+
+def _diagnostic_events(writer: FppWriter, plan: Plan) -> None:
+    event_ids = plan.diagnostic_event_ids
+    if not event_ids:
+        return
+
+    writer.banner("Proxy diagnostics")
+    writer.comment(_DIAGNOSTIC_PREAMBLE)
+    writer.blank()
 
     if "ProxyDecodeError" in event_ids:
         writer.declaration(

@@ -15,7 +15,7 @@ namespace RefProxy {
   void RefProxy ::
     decodeTelemetryPacket(Fw::ComBuffer& _packet)
   {
-    RemotePacketId _identifier = 0;
+    ::RefProxy::RefProxy_FwTlmPacketizeIdType _identifier = 0;
     Fw::SerializeStatus _status = _packet.deserializeTo(_identifier);
     if (_status != Fw::FW_SERIALIZE_OK) {
       this->recordDecodeError(DESCRIPTOR_PACKETIZED_TLM, 0, _status);
@@ -352,27 +352,27 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_ComQueueDepth _value;
+        ::RefProxy::RefProxy_Svc_ComQueueDepth _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_comQueue_comQueueDepth(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_ComQueueDepth::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_ComQueueDepth::SERIALIZED_SIZE;
 
     // ComCcsds.comQueue.buffQueueDepth
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_BuffQueueDepth _value;
+        ::RefProxy::RefProxy_Svc_BuffQueueDepth _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_comQueue_buffQueueDepth(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_BuffQueueDepth::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_BuffQueueDepth::SERIALIZED_SIZE;
 
     // ComCcsds.commsBufferManager.TotalBuffs
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -494,14 +494,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::FwSizeType _value = 0;
+        ::RefProxy::RefProxy_FwSizeType _value = 0;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_events_EventsDropped(_value, _timeTag);
         }
       }
     }
-    _offset += sizeof(::RefProxy::FwSizeType);
+    _offset += sizeof(::RefProxy::RefProxy_FwSizeType);
 
     // FileHandling.fileUplink.Warnings
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -701,27 +701,27 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SendBuff_ActiveState _value;
+        ::RefProxy::RefProxy_Ref_SendBuff_ActiveState _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_sendBuffComp_SendState(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SendBuff_ActiveState::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SendBuff_ActiveState::SERIALIZED_SIZE;
 
     // Ref.recvBuffComp.PktState
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_PacketStat _value;
+        ::RefProxy::RefProxy_Ref_PacketStat _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_recvBuffComp_PktState(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_PacketStat::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_PacketStat::SERIALIZED_SIZE;
 
     // Ref.recvBuffComp.Sensor1
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -817,14 +817,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalType _value;
+        ::RefProxy::RefProxy_Ref_SignalType _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG1_Type(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalType::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalType::SERIALIZED_SIZE;
 
     // Ref.SG2.Output
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -843,14 +843,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalType _value;
+        ::RefProxy::RefProxy_Ref_SignalType _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG2_Type(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalType::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalType::SERIALIZED_SIZE;
 
     // Ref.SG3.Output
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -869,14 +869,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalType _value;
+        ::RefProxy::RefProxy_Ref_SignalType _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG3_Type(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalType::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalType::SERIALIZED_SIZE;
 
     // Ref.SG4.Output
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -895,14 +895,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalType _value;
+        ::RefProxy::RefProxy_Ref_SignalType _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG4_Type(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalType::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalType::SERIALIZED_SIZE;
 
     // Ref.SG5.Output
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -921,14 +921,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalType _value;
+        ::RefProxy::RefProxy_Ref_SignalType _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG5_Type(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalType::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalType::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x4, _status);
   }
@@ -1243,14 +1243,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalInfo _value;
+        ::RefProxy::RefProxy_Ref_SignalInfo _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG1_Info(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalInfo::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalInfo::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0xA, _status);
   }
@@ -1268,14 +1268,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalInfo _value;
+        ::RefProxy::RefProxy_Ref_SignalInfo _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG2_Info(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalInfo::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalInfo::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0xB, _status);
   }
@@ -1293,14 +1293,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalInfo _value;
+        ::RefProxy::RefProxy_Ref_SignalInfo _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG3_Info(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalInfo::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalInfo::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0xC, _status);
   }
@@ -1318,14 +1318,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalInfo _value;
+        ::RefProxy::RefProxy_Ref_SignalInfo _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG4_Info(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalInfo::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalInfo::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0xD, _status);
   }
@@ -1343,14 +1343,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalInfo _value;
+        ::RefProxy::RefProxy_Ref_SignalInfo _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG5_Info(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalInfo::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalInfo::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0xE, _status);
   }
@@ -1368,40 +1368,40 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPair _value;
+        ::RefProxy::RefProxy_Ref_SignalPair _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG1_PairOutput(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPair::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPair::SERIALIZED_SIZE;
 
     // Ref.SG1.History
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalSet _value;
+        ::RefProxy::RefProxy_Ref_SignalSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG1_History(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalSet::SERIALIZED_SIZE;
 
     // Ref.SG1.PairHistory
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPairSet _value;
+        ::RefProxy::RefProxy_Ref_SignalPairSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG1_PairHistory(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPairSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPairSet::SERIALIZED_SIZE;
 
     // Ref.SG1.DpBytes
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1445,40 +1445,40 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPair _value;
+        ::RefProxy::RefProxy_Ref_SignalPair _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG2_PairOutput(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPair::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPair::SERIALIZED_SIZE;
 
     // Ref.SG2.History
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalSet _value;
+        ::RefProxy::RefProxy_Ref_SignalSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG2_History(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalSet::SERIALIZED_SIZE;
 
     // Ref.SG2.PairHistory
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPairSet _value;
+        ::RefProxy::RefProxy_Ref_SignalPairSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG2_PairHistory(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPairSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPairSet::SERIALIZED_SIZE;
 
     // Ref.SG2.DpBytes
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1522,40 +1522,40 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPair _value;
+        ::RefProxy::RefProxy_Ref_SignalPair _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG3_PairOutput(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPair::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPair::SERIALIZED_SIZE;
 
     // Ref.SG3.History
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalSet _value;
+        ::RefProxy::RefProxy_Ref_SignalSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG3_History(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalSet::SERIALIZED_SIZE;
 
     // Ref.SG3.PairHistory
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPairSet _value;
+        ::RefProxy::RefProxy_Ref_SignalPairSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG3_PairHistory(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPairSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPairSet::SERIALIZED_SIZE;
 
     // Ref.SG3.DpBytes
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1599,40 +1599,40 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPair _value;
+        ::RefProxy::RefProxy_Ref_SignalPair _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG4_PairOutput(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPair::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPair::SERIALIZED_SIZE;
 
     // Ref.SG4.History
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalSet _value;
+        ::RefProxy::RefProxy_Ref_SignalSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG4_History(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalSet::SERIALIZED_SIZE;
 
     // Ref.SG4.PairHistory
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPairSet _value;
+        ::RefProxy::RefProxy_Ref_SignalPairSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG4_PairHistory(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPairSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPairSet::SERIALIZED_SIZE;
 
     // Ref.SG4.DpBytes
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1676,40 +1676,40 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPair _value;
+        ::RefProxy::RefProxy_Ref_SignalPair _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG5_PairOutput(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPair::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPair::SERIALIZED_SIZE;
 
     // Ref.SG5.History
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalSet _value;
+        ::RefProxy::RefProxy_Ref_SignalSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG5_History(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalSet::SERIALIZED_SIZE;
 
     // Ref.SG5.PairHistory
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_SignalPairSet _value;
+        ::RefProxy::RefProxy_Ref_SignalPairSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_SG5_PairHistory(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_SignalPairSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_SignalPairSet::SERIALIZED_SIZE;
 
     // Ref.SG5.DpBytes
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1753,66 +1753,66 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_Choice _value;
+        ::RefProxy::RefProxy_Ref_Choice _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_ChoiceCh(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_Choice::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_Choice::SERIALIZED_SIZE;
 
     // Ref.typeDemo.ChoicesCh
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_ManyChoices _value;
+        ::RefProxy::RefProxy_Ref_ManyChoices _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_ChoicesCh(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_ManyChoices::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_ManyChoices::SERIALIZED_SIZE;
 
     // Ref.typeDemo.ExtraChoicesCh
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_TooManyChoices _value;
+        ::RefProxy::RefProxy_Ref_TooManyChoices _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_ExtraChoicesCh(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_TooManyChoices::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_TooManyChoices::SERIALIZED_SIZE;
 
     // Ref.typeDemo.ChoicePairCh
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_ChoicePair _value;
+        ::RefProxy::RefProxy_Ref_ChoicePair _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_ChoicePairCh(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_ChoicePair::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_ChoicePair::SERIALIZED_SIZE;
 
     // Ref.typeDemo.ChoiceSlurryCh
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_ChoiceSlurry _value;
+        ::RefProxy::RefProxy_Ref_ChoiceSlurry _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_ChoiceSlurryCh(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_ChoiceSlurry::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_ChoiceSlurry::SERIALIZED_SIZE;
 
     // Ref.typeDemo.Float1Ch
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1857,27 +1857,27 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_FloatSet _value;
+        ::RefProxy::RefProxy_Ref_FloatSet _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_FloatSet(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_FloatSet::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_FloatSet::SERIALIZED_SIZE;
 
     // Ref.typeDemo.ScalarStructCh
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Ref_ScalarStruct _value;
+        ::RefProxy::RefProxy_Ref_ScalarStruct _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_typeDemo_ScalarStructCh(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Ref_ScalarStruct::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Ref_ScalarStruct::SERIALIZED_SIZE;
 
     // Ref.typeDemo.ScalarU8Ch
     if (_status == Fw::FW_SERIALIZE_OK) {
@@ -2486,14 +2486,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion01(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x1C, _status);
   }
@@ -2511,14 +2511,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion02(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x1D, _status);
   }
@@ -2536,14 +2536,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion03(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x1E, _status);
   }
@@ -2561,14 +2561,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion04(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x1F, _status);
   }
@@ -2586,14 +2586,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion05(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x20, _status);
   }
@@ -2611,14 +2611,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion06(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x21, _status);
   }
@@ -2636,14 +2636,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion07(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x22, _status);
   }
@@ -2661,14 +2661,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion08(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x23, _status);
   }
@@ -2686,14 +2686,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion09(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x24, _status);
   }
@@ -2711,14 +2711,14 @@ namespace RefProxy {
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
-        ::RefProxy::Svc_CustomVersionDb _value;
+        ::RefProxy::RefProxy_Svc_CustomVersionDb _value;
         _status = _packet.deserializeTo(_value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_CustomVersion10(_value, _timeTag);
         }
       }
     }
-    _offset += ::RefProxy::Svc_CustomVersionDb::SERIALIZED_SIZE;
+    _offset += ::RefProxy::RefProxy_Svc_CustomVersionDb::SERIALIZED_SIZE;
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x25, _status);
   }

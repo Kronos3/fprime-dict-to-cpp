@@ -1,7 +1,7 @@
 """How a dictionary type is spelled in the generated FPP and the generated C++.
 
-The proxy re-declares every type the remote's dictionary references, under its own
-namespace, for two reasons.  The obvious one is that the remote's FPP is not
+The proxy re-declares every type the remote's dictionary references, inside its own
+component, for two reasons.  The obvious one is that the remote's FPP is not
 necessarily in the target build.  The load-bearing one is that a dictionary records
 the remote's *platform* widths -- its ``FwOpcodeType``, its ``FwSizeType`` -- and a
 proxy has to deserialize with those, not with whatever the local ``FpConfig.h`` says.
@@ -13,6 +13,13 @@ file name from a type's *leaf* name plus its enclosing component (if any) and ig
 enclosing modules entirely -- so two same-leaf types in different modules abort the
 autocoder with ``error: duplicate C++ file``.  The Ref dictionary has two such pairs
 (``DpReqType``, ``Enabled``), so this is not hypothetical.
+
+The definitions live *inside* the component rather than beside it, which is what keeps
+them from colliding with a project that already has a type of the same name: everything
+``fpp-to-cpp`` generates for a component member is prefixed with the component's name,
+so ``Ref_DpDemo_ColorEnum`` reaches C++ as ``RefProxy::RefProxy_Ref_DpDemo_ColorEnum``
+and its header as ``RefProxy_Ref_DpDemo_ColorEnumEnumAc.hpp``.  That prefix is why the
+generated C++ can name the remote's ``FwOpcodeType`` outright instead of aliasing it.
 """
 
 from __future__ import annotations
@@ -32,6 +39,7 @@ from .model import (
     EnumDef,
     Event,
     NamingError,
+    PlatformTypes,
     StructDef,
     TypeDef,
     TypeKind,
@@ -45,9 +53,18 @@ __all__ = [
     "Spelling",
     "TYPE_IDENTIFIER",
     "TypeNamer",
+    "WIRE_TYPE_NAMES",
     "check_type_identifier",
     "safe_identifier",
 ]
+
+#: The remote's packet-header type aliases, in the order the proxy declares them.
+#:
+#: Emitted whether or not a mirrored member reaches them, because the decoders read every
+#: packet header at these widths and so name all five.  Declaring them as types rather
+#: than as C++ ``using`` aliases keeps the wire format in the model, where a reader can
+#: see it beside the members it applies to.
+WIRE_TYPE_NAMES = tuple(alias for alias, _ in PlatformTypes.DEFAULTS.values())
 
 
 class Context(Enum):
@@ -179,16 +196,22 @@ class TypeNamer:
     """Maps a dictionary type's qualified name onto its generated spellings."""
 
     namespace: str
-    """The FPP module the generated types and component live in."""
+    """The FPP module the generated component lives in."""
+
+    component: str = ""
+    """The component the generated types are declared inside.
+
+    ``fpp-to-cpp`` prefixes everything it generates for a component's own type
+    definitions with the component name, so this is not a choice: it is what the
+    autocoder will do, recorded here so the generated C++ can say the same thing.
+    """
 
     prefix: str = ""
     """Prepended to every generated type name.
 
-    Empty by default.  A generated ``FwSizeType`` produces
-    ``FwSizeTypeAliasAc.hpp``, whose *name* matches the framework's own -- harmless,
-    since both are included by distinct project-relative paths, but a project that
-    manages to put the two directories on one include path can set a prefix to be
-    certain.
+    Empty by default, and rarely worth setting now that the definitions live inside the
+    component: :attr:`component` already keeps a generated ``FwSizeType`` from producing a
+    ``FwSizeTypeAliasAc.hpp`` that shadows the framework's own.
     """
 
     overrides: Mapping[str, str] = field(default_factory=dict)
@@ -214,23 +237,45 @@ class TypeNamer:
         return safe_identifier(name)
 
     def fpp(self, qualified: str) -> str:
-        """How the generated FPP refers to the type from inside :attr:`namespace`."""
+        """How the generated FPP refers to the type from inside the component."""
         return self.flat(qualified)
 
+    def outer_fpp(self, qualified: str) -> str:
+        """How FPP refers to the type from :attr:`namespace`, outside the component.
+
+        The definitions are component members, so a module-scope declaration -- a hooked
+        port type is the only one the generator emits -- has to qualify them with the
+        component's name.
+        """
+        flat = self.flat(qualified)
+        return f"{self.component}.{flat}" if self.component else flat
+
+    def cpp_name(self, qualified: str) -> str:
+        """The unqualified C++ name, ``RefProxy_Ref_DpDemo_ColorEnum``.
+
+        ``fpp-to-cpp`` prefixes a component's own type definitions with the component
+        name, and derives the generated header's file name from the same string.
+        """
+        flat = self.flat(qualified)
+        return f"{self.component}_{flat}" if self.component else flat
+
     def cpp(self, qualified: str) -> str:
-        """How the generated C++ refers to the type: ``::RefProxy::Ref_DpDemo_ColorEnum``.
+        """How the generated C++ refers to the type, ``::RefProxy::RefProxy_ColorEnum``.
+
+        The name is :meth:`cpp_name`, qualified by :attr:`namespace`.
 
         Rooted at global scope, deliberately.  ``fpp-to-cpp`` writes
-        ``RefProxy::Ref_DpDemo_ColorEnum`` in the base class and gets away with it
-        because that class is called ``RefProxyComponentBase``.  The implementation class
-        is called ``RefProxy``, so inside it the injected-class-name hides the namespace
-        of the same name and ``RefProxy::`` starts looking in the class -- which is the
-        common case, since a component and its module are usually named alike.  The
+        ``RefProxy::RefProxy_Ref_DpDemo_ColorEnum`` in the base class and gets away with
+        it because that class is called ``RefProxyComponentBase``.  The implementation
+        class is called ``RefProxy``, so inside it the injected-class-name hides the
+        namespace of the same name and ``RefProxy::`` starts looking in the class -- which
+        is the common case, since a component and its module are usually named alike.  The
         leading ``::`` sidesteps that without depending on what the dictionary happens to
         name things.  It denotes the same type either way, so an override still overrides.
         """
         scope = "::".join(part for part in self.namespace.split(".") if part)
-        return f"::{scope}::{self.flat(qualified)}" if scope else self.flat(qualified)
+        name = self.cpp_name(qualified)
+        return f"::{scope}::{name}" if scope else name
 
 
 class Spelling:
@@ -248,6 +293,7 @@ class Spelling:
             mirrored if mirrored is not None else Mirrored.everything(dictionary)
         )
         self._reachable_cache: set[str] | None = None
+        self._wire_cache: dict[str, AliasDef] | None = None
 
     # -- FPP ----------------------------------------------------------
 
@@ -262,6 +308,16 @@ class Spelling:
         if ref.kind is TypeKind.QUALIFIED:
             return self.namer.fpp(ref.name)
         return ref.name
+
+    def outer_fpp_type(self, ref: TypeRef) -> str:
+        """The FPP spelling of ``ref`` at a use site *outside* the component.
+
+        Only a hooked port type needs this: FPP has no port definition inside a component,
+        so those are declared beside it and have to name the component's types in full.
+        """
+        if ref.kind is TypeKind.QUALIFIED:
+            return self.namer.outer_fpp(ref.name)
+        return self.fpp_type(ref)
 
     # -- C++ ----------------------------------------------------------
 
@@ -333,7 +389,7 @@ class Spelling:
         ``fpp-to-cpp`` passes such a type by value, since it is a ``using`` alias for
         a scalar.  An alias to a *string* is a class, so it goes by reference.
         """
-        definition = self._dictionary.type_def(qualified)
+        definition = self.definition(qualified)
         if not isinstance(definition, AliasDef):
             return False
         return definition.underlying.kind in (
@@ -341,6 +397,15 @@ class Spelling:
             TypeKind.FLOAT,
             TypeKind.BOOL,
         )
+
+    def definition(self, qualified: str) -> TypeDef | None:
+        """The definition the proxy will emit for ``qualified``, if it emits one.
+
+        The dictionary's own entry, or -- for a packet-header alias the dictionary left
+        out -- the one :meth:`wire_type_defs` synthesises in its place.
+        """
+        found = self._dictionary.type_def(qualified)
+        return found if found is not None else self._wire_index.get(qualified)
 
     # -- selection and ordering ---------------------------------------
 
@@ -361,14 +426,48 @@ class Spelling:
         A dictionary that references a type it does not define cannot produce FPP that
         resolves, so this is worth reporting before the autocoder trips over it.
         """
-        return {
-            name
-            for name in self._reachable()
-            if self._dictionary.type_def(name) is None
-        }
+        return {name for name in self._reachable() if self.definition(name) is None}
+
+    @property
+    def _wire_index(self) -> Mapping[str, AliasDef]:
+        if self._wire_cache is None:
+            self._wire_cache = {d.qualified_name: d for d in self.wire_type_defs()}
+        return self._wire_cache
+
+    def wire_type_defs(self) -> tuple[AliasDef, ...]:
+        """The remote's packet-header aliases, in :data:`WIRE_TYPE_NAMES` order.
+
+        Always all five, even the ones no mirrored member mentions: the decoders read
+        every header field at the remote's recorded width, so the component declares the
+        widths whether or not the ground interface happens to use them.  A dictionary that
+        did not record one gets F Prime's default, synthesised here -- which is the width
+        the remote would have used had it not been reconfigured.
+        """
+        platform = self._dictionary.platform
+        defs = []
+        for field_name, (alias_name, _) in PlatformTypes.DEFAULTS.items():
+            existing = self._dictionary.type_def(alias_name)
+            if isinstance(existing, AliasDef):
+                defs.append(existing)
+                continue
+            ref: TypeRef = getattr(platform, field_name)
+            defs.append(
+                AliasDef(
+                    qualified_name=alias_name,
+                    target=ref,
+                    underlying=ref,
+                    annotation="Not recorded by the remote's dictionary; F Prime's "
+                    "default width for this field",
+                )
+            )
+        return tuple(defs)
+
+    def all_type_defs(self) -> list[TypeDef]:
+        """Every definition the proxy emits: the wire aliases, then the mirrored types."""
+        return [*self.wire_type_defs(), *self.type_defs()]
 
     def type_defs(self) -> list[TypeDef]:
-        """The type definitions the proxy needs, in dependency order.
+        """The mirrored type definitions the proxy needs, in dependency order.
 
         Only the *reachable* ones: a dictionary describes a whole deployment, including
         data-product record and container types the proxy does not mirror, and emitting
@@ -376,10 +475,17 @@ class Spelling:
         actively break the build -- a stray ``FwSizeStoreType`` shadows FPP's implied use
         of that name and takes every string in the module down with it.
 
-        Ordering is by dependency.  FPP resolves names within a module regardless of
+        The packet-header aliases are left out, because :meth:`wire_type_defs` emits all
+        five unconditionally and one type cannot be declared twice.
+
+        Ordering is by dependency.  FPP resolves names within a scope regardless of
         order, so this is for readability rather than correctness.
         """
-        available = {d.qualified_name: d for d in self._dictionary.type_defs}
+        available = {
+            d.qualified_name: d
+            for d in self._dictionary.type_defs
+            if d.qualified_name not in WIRE_TYPE_NAMES
+        }
         reachable = self._reachable()
         emitted: list[TypeDef] = []
         placed: set[str] = set()

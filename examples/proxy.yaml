@@ -78,7 +78,7 @@ type-names:
 # true takes the derived port name (dpDemo_SelectColor -> dpDemo_SelectColor_cmdIn); a
 # string names the port outright; false is the same as leaving the line out, so a hook
 # can be switched off without losing the note about it.  The port's own type is generated
-# into <Component>Types.fpp with the command's formals, so it cannot be handed the wrong
+# into <Component>.fpp with the command's formals, so it cannot be handed the wrong
 # arguments.
 # command-ports:
 #   Ref.dpDemo.SelectColor: true

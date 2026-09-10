@@ -286,7 +286,8 @@ class TestChosenNames:
     def test_a_type_gets_the_name_it_was_given(self, ref: Dictionary) -> None:
         plan = resolve(ref, config_for(type_name_overrides={COLOR_ENUM: "DemoColor"}))
         assert plan.spelling.namer.flat(COLOR_ENUM) == "DemoColor"
-        assert plan.spelling.namer.cpp(COLOR_ENUM) == "::RefProxy::DemoColor"
+        # fpp-to-cpp prefixes a component's own type definitions with the component name.
+        assert plan.spelling.namer.cpp(COLOR_ENUM) == "::RefProxy::RefProxy_DemoColor"
 
 
 class TestChosenNamesAreChecked:
@@ -341,7 +342,7 @@ class TestChosenNamesAreChecked:
             if definition.qualified_name
             not in {
                 emitted.qualified_name
-                for emitted in resolve(ref, config_for()).spelling.type_defs()
+                for emitted in resolve(ref, config_for()).spelling.all_type_defs()
             }
         )
         plan = resolve(ref, config_for(type_name_overrides={unreachable: "Unused"}))

@@ -1,4 +1,4 @@
-"""``-i``: the four questions, and the configuration file it leaves behind.
+"""``-i``: the shaping questions, and the configuration file it leaves behind.
 
 Answers are matched against the question that was just asked rather than counted off in
 order, so these tests say what they mean and do not have to be renumbered every time a
@@ -115,14 +115,19 @@ class TestParser:
 
 
 class TestTheQuestions:
-    """Four, and no more: the rest of the configuration is a file, not a prompt."""
+    """Few, and no more: the rest of the configuration is a file, not a prompt."""
 
     def test_are_only_the_ones_that_shape_the_component(
         self, session, tmp_path: Path, ref_path: Path  # type: ignore[no-untyped-def]
     ) -> None:
         assert session([str(ref_path), "-o", str(tmp_path / "out"), "-i"]) == 0
         asked = session.transcript.text
-        for question in ("component name", "output directory", "component kind"):
+        for question in (
+            "component name",
+            "namespace",
+            "output directory",
+            "component kind",
+        ):
             assert question in asked
         for finer in (
             "naming preset",
@@ -150,6 +155,24 @@ class TestTheQuestions:
         )
         assert code == 0
         assert "passive component P {" in (output / "P.fpp").read_text()
+
+    def test_offer_the_component_name_as_the_namespace_without_assuming_it(
+        self, session, tmp_path: Path, ref_path: Path  # type: ignore[no-untyped-def]
+    ) -> None:
+        # The default is the component's name, but it is answered rather than assumed, so
+        # a component in a module of its own is one line of typing away.
+        output = tmp_path / "out"
+        assert (
+            session(
+                [str(ref_path), "-o", str(output), "-i"],
+                {"component name": "P", "namespace": "Ref.Proxies"},
+            )
+            == 0
+        )
+        assert "namespace [P]" in session.transcript.text
+        fpp = (output / "P.fpp").read_text()
+        assert "module Ref {" in fpp and "module Proxies {" in fpp
+        assert "\nnamespace: Ref.Proxies\n" in (output / "P.yaml").read_text()
 
     def test_a_flag_given_on_the_command_line_becomes_the_offered_default(
         self, session, tmp_path: Path, ref_path: Path  # type: ignore[no-untyped-def]
@@ -198,7 +221,12 @@ class TestTheConfigurationItWrites:
         output = tmp_path / "out"
         session([str(ref_path), "-o", str(output), "-i"], {"component kind": "passive"})
         text = (output / "RefProxy.yaml").read_text()
-        for answered in ("component: RefProxy", "kind: passive", "output: ."):
+        for answered in (
+            "component: RefProxy",
+            "namespace: RefProxy",
+            "kind: passive",
+            "output: .",
+        ):
             assert f"\n{answered}\n" in text, answered
         for commented in ("# naming: instance", "# packetized: true", "# names:"):
             assert f"\n{commented}\n" in text, commented

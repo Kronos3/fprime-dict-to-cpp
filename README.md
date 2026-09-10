@@ -101,6 +101,7 @@ fprime-dict-to-cpp -i RefTopologyDictionary.json
 ```
 a proxy for Ref.Ref
 component name [RefProxy]:
+namespace [RefProxy]: Ref.Proxy
 output directory [RefProxy]: Ref/RefProxy
 component kind (passive/queued/active) [active]: passive
 

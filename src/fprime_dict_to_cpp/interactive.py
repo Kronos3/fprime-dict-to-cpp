@@ -2,7 +2,8 @@
 
 Interactive mode is a way *in*, not a second command line.  It asks only the questions
 whose answers a component is built around -- which dictionary, what the component is
-called, where it goes, and what kind it is -- generates the component, and writes a
+called, which module it lives in, where it goes, and what kind it is -- generates the
+component, and writes a
 configuration file beside it: those answers set, and every finer-grained option listed,
 commented out, one line each saying what it does.
 
@@ -138,6 +139,7 @@ def scaffold(options: Options, prompter: Prompter) -> Scaffold:
 
     prompter.say(f"\na proxy for {parsed.metadata.deployment_name}")
     component = prompter.text("component name", options.component_for(deployment))
+    namespace = prompter.text("namespace", options.namespace or component)
     output = prompter.path("output directory", options.output_for(component))
     kind = ComponentKind(
         prompter.choice(
@@ -145,7 +147,12 @@ def scaffold(options: Options, prompter: Prompter) -> Scaffold:
         )
     )
     answered = replace(
-        options, dictionary=source, component=component, output=output, kind=kind
+        options,
+        dictionary=source,
+        component=component,
+        namespace=namespace,
+        output=output,
+        kind=kind,
     )
 
     path = config_path(output, component)
@@ -187,6 +194,7 @@ def _skeleton(options: Options, source: Path, output: Path, component: str) -> s
         "dictionary": _relative(source, output),
         "output": Path("."),
         "component": component,
+        "namespace": options.namespace or component,
         "kind": options.kind,
     }
     for key, table in (
@@ -205,10 +213,7 @@ def _skeleton(options: Options, source: Path, output: Path, component: str) -> s
             chosen[key] = table
     return config_file.skeleton(
         chosen,
-        defaults={
-            "include-prefix": options.include_prefix_for(output),
-            "namespace": options.namespace or component,
-        },
+        defaults={"include-prefix": options.include_prefix_for(output)},
         header=[
             f"{component}: how this proxy is generated.",
             "",

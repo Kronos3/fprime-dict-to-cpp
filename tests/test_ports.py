@@ -34,6 +34,11 @@ PACKET = "RefPackets.CDH"
 #: makes omitting one kind of it distinguishable from omitting the member.
 SHARED = QualifiedName.parse("CdhCore.version.FrameworkVersion")
 
+#: An instance whose commands include some that a second pattern can pick back out: a
+#: parameter set command, which is the usual thing a whole-instance hook does not want.
+TYPE_DEMO = "Ref.typeDemo.*"
+PRM_SET = "*_PRM_SET"
+
 
 def config_for(**overrides: object) -> Config:
     base: dict[str, object] = dict(
@@ -57,6 +62,16 @@ def port_for(plan: Plan, name: QualifiedName) -> object:
         if member.source.name == name and member.port is not None:
             return member.port
     raise AssertionError(f"no port is hooked onto {name}")
+
+
+def hooked(plan: Plan) -> set[str]:
+    """What every port of the plan hooks, as the dictionary names it."""
+    return {port.origin for port in plan.ports}
+
+
+def key(text: str) -> QualifiedName:
+    """A port table key, which is a dictionary name or a pattern over one."""
+    return QualifiedName.parse(text)
 
 
 class TestOmit:
@@ -362,6 +377,116 @@ class TestPortNames:
     def test_a_chosen_name_has_to_be_an_identifier(self, ref: Dictionary) -> None:
         with pytest.raises(NamingError, match="not a usable member name"):
             plan_for(ref, command_ports={COMMAND: "2fast"})
+
+
+class TestPortPatterns:
+    """A port table's keys are matched as ``omit``'s entries are, globs and all."""
+
+    def test_a_glob_hooks_every_member_it_reaches(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, command_ports={key("Ref.SG1.*"): True})
+        assert hooked(plan) == {
+            str(c.name) for c in ref.commands if ".SG1." in str(c.name)
+        }
+        # And each got the name it would have got had it been keyed by name.
+        assert "SG1_Toggle_cmdIn" in {port.name for port in plan.ports}
+
+    def test_a_star_hooks_every_member_of_that_kind_only(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, command_ports={key("*"): True})
+        assert len(plan.input_ports) == len(ref.commands)
+        assert not plan.output_ports
+
+    def test_derived_names_stay_unique_across_a_whole_kind(
+        self, ref: Dictionary
+    ) -> None:
+        # The stress case for the kind suffixes: every event and every channel at once,
+        # which includes the pair that share a member name.
+        plan = plan_for(
+            ref, event_ports={key("*"): True}, telemetry_ports={key("*"): True}
+        )
+        names = [port.name for port in plan.ports]
+        assert len(names) == len(set(names)) == len(ref.events) + len(ref.channels)
+        assert not any("needed a suffix" in w for w in plan.warnings)
+
+    def test_a_glob_matching_nothing_is_an_error(self, ref: Dictionary) -> None:
+        with pytest.raises(NamingError, match="matches no event in the dictionary"):
+            plan_for(ref, event_ports={key("Ref.noSuchInstance.*"): True})
+
+    def test_a_glob_cannot_name_a_port_outright(self, ref: Dictionary) -> None:
+        # Every command it reached would ask to be called pingRemote, which is the one
+        # thing port names cannot do.
+        with pytest.raises(NamingError, match="a pattern cannot name a port outright"):
+            plan_for(ref, command_ports={key("Ref.SG1.*"): "pingRemote"})
+
+    def test_a_name_beats_a_glob_that_asks(self, ref: Dictionary) -> None:
+        plan = plan_for(
+            ref,
+            command_ports={key("Ref.SG1.*"): True, key("Ref.SG1.Toggle"): False},
+        )
+        assert "Ref.SG1.Toggle" not in hooked(plan)
+        assert len(hooked(plan)) == 3
+
+    def test_a_name_beats_a_glob_that_refuses(self, ref: Dictionary) -> None:
+        # The other direction, which is what lets one member be picked out of a kind that
+        # was switched off wholesale.
+        plan = plan_for(
+            ref,
+            command_ports={key("*"): False, key("Ref.SG1.Toggle"): True},
+        )
+        assert hooked(plan) == {"Ref.SG1.Toggle"}
+
+    def test_a_name_may_name_the_port_a_glob_would_have_derived(
+        self, ref: Dictionary
+    ) -> None:
+        plan = plan_for(
+            ref,
+            command_ports={
+                key("Ref.SG1.*"): True,
+                key("Ref.SG1.Toggle"): "toggleRemote",
+            },
+        )
+        names = {port.origin: port.name for port in plan.ports}
+        assert names["Ref.SG1.Toggle"] == "toggleRemote"
+        assert names["Ref.SG1.Skip"] == "SG1_Skip_cmdIn"
+
+    @pytest.mark.parametrize("reversed_", [False, True])
+    def test_among_globs_a_refusal_beats_a_request(
+        self, ref: Dictionary, reversed_: bool
+    ) -> None:
+        # Hook an instance, except the parameter set commands in it -- and the answer does
+        # not depend on which of the two lines was written first.
+        entries = [(key(TYPE_DEMO), True), (key(PRM_SET), False)]
+        plan = plan_for(
+            ref, command_ports=dict(reversed(entries) if reversed_ else entries)
+        )
+        reached = {
+            str(c.name) for c in ref.commands if str(c.name).startswith("Ref.typeDemo.")
+        }
+        assert hooked(plan) == {n for n in reached if not n.endswith("_PRM_SET")}
+
+    def test_a_packet_glob_matches_over_the_set_as_well(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, packet_ports={"RefPackets.SigGen1*": True})
+        assert hooked(plan) == {"RefPackets.SigGen1", "RefPackets.SigGen1Info"}
+
+    def test_a_glob_keeps_the_channels_it_reaches_decoded(
+        self, ref: Dictionary
+    ) -> None:
+        # The combination the patterns are really for: declare nothing, and report one
+        # instance's telemetry through ports.
+        plan = plan_for(
+            ref, omit=["*"], telemetry_ports={key("CdhCore.cmdDisp.*"): True}
+        )
+        assert not plan.declared_channels
+        assert {str(c.source.name) for c in plan.decoded_channels} == {
+            str(c.name)
+            for c in ref.channels
+            if str(c.name).startswith("CdhCore.cmdDisp.")
+        }
+
+    def test_a_glob_switching_a_whole_kind_off_is_not_a_hook(
+        self, ref: Dictionary
+    ) -> None:
+        plan = plan_for(ref, packetized=False, packet_ports={"RefPackets.*": False})
+        assert not plan.ports
 
 
 class TestPortFormals:

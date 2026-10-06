@@ -75,12 +75,20 @@ type-names:
 # and the port's arguments into a command packet and sends it, with no ground command and
 # no command response in the way -- which is how flight software commands the remote.
 #
-# true takes the derived port name (dpDemo_SelectColor -> dpDemo_SelectColor_cmdIn); a
-# string names the port outright; false is the same as leaving the line out, so a hook
-# can be switched off without losing the note about it.  The port's own type is generated
-# into <Component>.fpp with the command's formals, so it cannot be handed the wrong
-# arguments.
+# Keyed by a dictionary name or an fnmatch glob, exactly as omit above is spelled, and a
+# key matching no command is the same error.  true takes the derived port name
+# (dpDemo_SelectColor -> dpDemo_SelectColor_cmdIn); a string names the port outright, which
+# only a name may do, since every command a glob reached would ask for that one name; false
+# is the same as leaving the line out, so a hook can be switched off without losing the
+# note about it.  The port's own type is generated into <Component>.fpp with the command's
+# formals, so it cannot be handed the wrong arguments.
+#
+# Where two keys reach one command, a name beats a glob over it and, between globs, a
+# refusal beats a request -- so a pattern can hook a whole instance while a second keeps
+# the parameter sets in it unhooked, and a name can then settle one command either way.
 # command-ports:
+#   "Ref.typeDemo.*": true
+#   "*_PRM_SET": false
 #   Ref.dpDemo.SelectColor: true
 #   CdhCore.cmdDisp.CMD_NO_OP: pingRemote
 
@@ -88,14 +96,17 @@ type-names:
 # arrives from the remote.  Spelled as command-ports is.
 # event-ports:
 #   CdhCore.cmdDisp.OpCodeDispatched: true
+#   "Ref.dpDemo.*": true
 
 # Telemetry channels to hook an output port onto.  The port carries the value and the
 # timestamp the REMOTE reported, which is the same pair the generated tlmWrite_ helper is
 # given.
 # telemetry-ports:
 #   CdhCore.cmdDisp.CommandsDispatched: true
+#   "CdhCore.cmdDisp.*": true
 
-# Telemetry packets to hook an output port onto, keyed <packet set>.<packet>.  The port
+# Telemetry packets to hook an output port onto, keyed <packet set>.<packet> -- or a glob
+# over the whole of that, so "RefPackets.*" reaches every packet of the set.  The port
 # carries one formal per channel of the packet in wire order, then the single timestamp
 # they all share.  A packet is a layout rather than a declared member, so there is
 # nothing in omit for one: a packet port is what makes a packet visible at all.

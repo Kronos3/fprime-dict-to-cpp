@@ -291,6 +291,10 @@ itself (`comIn`, `ProxyDecodeErrors`), and, for a type, a C++ keyword or a name 
 implicitly. A type override that collides with how another emitted type is spelled names
 that type, so both can be renamed.
 
+These two keys take **names only**, not globs — unlike `omit` and the port tables, where a
+pattern reaches many members, an override says what one thing is called, and two members
+cannot share a name.
+
 ## Hooking ports onto members
 
 A proxy's job so far has been the *ground* interface: the remote's commands become commands
@@ -306,6 +310,7 @@ configuration keys that do it — tables, so `--config` is the way in:
 # invoking the port forwards the command to the remote
 command-ports:
   Ref.dpDemo.SelectColor: true         # -> async input port dpDemo_SelectColor_cmdIn
+  "Ref.SG1.*": true                    # a glob, as in omit
   CdhCore.cmdDisp.CMD_NO_OP: pingRemote
 
 # these fire when the matching packet arrives from the remote
@@ -363,6 +368,32 @@ have their own. That is why a derived name carries its kind (`_cmdIn`, `_eventOu
 a pair in the `Ref` dictionary does — cannot then ask for the same port. A name you choose is
 taken first and a derived name that would have collided with it is the one that grows, which
 is the rule [mangling](#name-mangling) already follows.
+
+### Hooking more than one at a time
+
+A key is a dictionary name **or an `fnmatch` glob over one**, matched exactly as an
+[`omit`](#omitting-members-from-the-ground-interface) entry is — so `"Ref.SG1.*": true` hooks
+a port onto every member of that instance, `"*": true` onto every member of that kind, and a
+`packet-ports` glob matches over the whole `<packet set>.<packet>`. A key matching nothing is
+the same error a name matching nothing is.
+
+Two keys can then reach one member, and which wins does not depend on the order they were
+written in:
+
+* **A name beats a glob over it.** `"Ref.SG1.*": true` with `Ref.SG1.Toggle: false` hooks
+  three of the four; `"*": false` with `Ref.SG1.Toggle: true` hooks exactly one.
+* **Between globs, a refusal beats a request.** `"Ref.typeDemo.*": true` with
+  `"*_PRM_SET": false` hooks the instance's commands except its parameter setters.
+
+**Only a name may name a port outright.** Every member a glob reached would ask to be called
+the same thing, and port names have to be unique, so a glob with a string value is refused
+rather than quietly applied to one of them:
+
+```
+error: proxy.yaml: command port for Ref.SG1.*: a pattern cannot name a port outright,
+  because every one of the 4 member(s) it matches would ask to be called 'pingRemote';
+  say true and let each name be derived, or key the entry by the one member you meant
+```
 
 ## Omitting members from the ground interface
 

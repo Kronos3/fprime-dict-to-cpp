@@ -303,12 +303,14 @@ def _table(key: Any, value_type: Any) -> Callable[[Any], dict[Any, Any]]:
     the answers live and where the Python API needs them checked too.
 
     A port table's values also accept ``true`` and ``false``, which is what makes hooking a
-    port a one-word answer where naming it is not the interesting part.
+    port a one-word answer where naming it is not the interesting part.  Its keys may be
+    globs as well, which is why only it says so: a name override names one member by
+    definition, since two members cannot share a name.
     """
     build = _TABLE_KEYS[key]
     switchable = set(_members(value_type)) == {bool, str}
     accepts = (
-        "a mapping of dictionary names to a port name, or to true or false"
+        "a mapping of dictionary names or globs to a port name, or to true or false"
         if switchable
         else "a mapping of dictionary names to generated names"
     )
@@ -568,11 +570,13 @@ class Options:
             "command-ports",
             flag=False,
             note="commands to hook an input port onto: invoking the port forwards the "
-            "command to the remote, with no ground command in the way.  true takes the "
-            "derived port name, a string names the port outright",
+            "command to the remote, with no ground command in the way.  Keyed as omit is "
+            "spelled, by a dictionary name or a glob; true takes the derived port name, a "
+            "string names the port outright, and only a name may do that",
             example=(
                 "command-ports:",
                 "  Ref.dpDemo.SelectColor: true  # -> dpDemo_SelectColor_cmdIn",
+                '  "Ref.SG1.*": true',
                 "  CdhCore.cmdDisp.CMD_NO_OP: pingRemote",
             ),
         ),
@@ -588,6 +592,7 @@ class Options:
             example=(
                 "event-ports:",
                 "  CdhCore.cmdDisp.OpCodeDispatched: true",
+                '  "Ref.dpDemo.*": true',
             ),
         ),
         default_factory=dict,
@@ -602,6 +607,7 @@ class Options:
             example=(
                 "telemetry-ports:",
                 "  CdhCore.cmdDisp.CommandsDispatched: true",
+                '  "*_PRM_SET": false  # a glob that refuses beats one that asks',
             ),
         ),
         default_factory=dict,
@@ -612,11 +618,12 @@ class Options:
             "packet-ports",
             flag=False,
             note="telemetry packets to hook an output port onto, keyed <packet "
-            "set>.<packet>; the port carries every channel of the packet in wire order "
-            "and then the one timestamp they share",
+            "set>.<packet> or a glob over one; the port carries every channel of the "
+            "packet in wire order and then the one timestamp they share",
             example=(
                 "packet-ports:",
                 "  RefPackets.CDH: true",
+                '  "RefPackets.*": true',
             ),
         ),
         default_factory=dict,

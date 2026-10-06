@@ -22,6 +22,12 @@ tables hook a typed port onto the same traffic: an input port that forwards a co
 output port that fires when an event, a channel or a telemetry packet arrives.  The two
 are orthogonal: a member can have both, either, or neither, and a member with neither is
 not decoded at all.
+
+Both sides of that are selected the same way: an entry of an ``omit`` list and a key of a
+port table are each a dictionary name or an ``fnmatch`` glob over one, and one that matches
+nothing is an error rather than a no-op.  Which member a pattern reached is settled before
+anything else happens -- by :func:`_omitted` for the omissions, :func:`_resolve_hooks` for
+the ports -- so everything after those two works in dictionary names alone.
 """
 
 from __future__ import annotations
@@ -235,7 +241,7 @@ class Config:
     """
 
     command_ports: Mapping[QualifiedName, bool | str] = field(default_factory=dict)
-    """Commands to hook an input port onto, keyed by full dictionary name.
+    """Commands to hook an input port onto, keyed by dictionary name or by a glob over one.
 
     ``True`` takes the derived port name (:attr:`PortKind.suffix`); a string names the port
     outright; ``False`` is the same as saying nothing, so a hook can be switched off
@@ -243,6 +249,12 @@ class Config:
     opcode and the port's arguments into a command packet and sends it, exactly as the
     forwarded command does -- but with no ground command, and no command response, in the
     way.
+
+    A key is matched the way an :attr:`omit` entry is, so ``"Ref.dpDemo.*": true`` hooks a
+    port onto every command of that instance and a key matching no command is an error.  A
+    pattern may not name a port outright, since every command it reached would then ask for
+    the same port name; see :func:`_resolve_hooks` for that and for what happens when two
+    keys reach one command.
 
     A port is *additive*: the command is still declared unless :attr:`omit` also names it.
     """
@@ -263,6 +275,10 @@ class Config:
 
     packet_ports: Mapping[str, bool | str] = field(default_factory=dict)
     """Telemetry packets to hook an output port onto, keyed ``<set name>.<packet name>``.
+
+    Spelled as :attr:`command_ports` is otherwise, so a glob matches over the whole
+    ``<set name>.<packet name>`` and ``"RefPackets.*": true`` hooks a port onto every packet
+    of that set.
 
     The port carries one formal per channel of the packet, in wire order, then the packet's
     single timestamp.  Unlike the three tables above there is nothing to omit: a packet is
@@ -678,8 +694,9 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
     """
     warnings: list[str] = []
     _check_name_overrides(dictionary, config)
-    _check_port_hooks(dictionary, config)
-    selection = _select(dictionary, config, warnings)
+    ports = _resolve_hooks(dictionary, config)
+    _check_port_hooks(config, ports)
+    selection = _select(dictionary, config, ports, warnings)
     namer = TypeNamer(
         namespace=config.namespace,
         component=config.component,
@@ -705,7 +722,7 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
         packets=packets,
         warnings=tuple(warnings),
     )
-    plan = _hook_ports(plan, warnings)
+    plan = _hook_ports(plan, ports, warnings)
     return replace(plan, warnings=tuple(warnings))
 
 
@@ -836,6 +853,33 @@ _PORT_LABELS = {
     PortKind.PACKET: "packet port",
 }
 
+#: Text that makes an entry -- of an ``omit`` list, or of a port table -- a pattern rather
+#: than a name.  Shared, because the two are matched alike.
+_GLOB = re.compile(r"[*?\[]")
+
+
+@dataclass(frozen=True)
+class _Ports:
+    """Every port the configuration asked for, keyed as the dictionary names what it hooks.
+
+    A port table's keys may be patterns, and two of them may reach one member, so nothing
+    downstream reads the tables as written: :func:`_resolve_hooks` settles what each member
+    was asked for, once, and this is the answer.  An entry asking for no port leaves nothing
+    behind, so every key here is a port that is wanted.
+    """
+
+    commands: Mapping[QualifiedName, bool | str]
+    events: Mapping[QualifiedName, bool | str]
+    channels: Mapping[QualifiedName, bool | str]
+    packets: Mapping[str, bool | str]
+
+    def tables(self) -> Iterator[tuple[PortKind, Mapping[Any, bool | str]]]:
+        """Each table with the kind of port it holds, for a check that spans all four."""
+        yield PortKind.COMMAND, self.commands
+        yield PortKind.EVENT, self.events
+        yield PortKind.TELEMETRY, self.channels
+        yield PortKind.PACKET, self.packets
+
 
 def _packet_names(dictionary: Dictionary) -> set[str]:
     """Every telemetry packet, named as :attr:`Config.packet_ports` keys one."""
@@ -848,43 +892,138 @@ def _packet_names(dictionary: Dictionary) -> set[str]:
 
 def _port_tables(
     dictionary: Dictionary, config: Config
-) -> Iterator[tuple[PortKind, Mapping[Any, bool | str], Collection[Any], str]]:
-    """Each port table, with what its keys may name and what to say when one does not."""
+) -> Iterator[tuple[PortKind, Mapping[Any, bool | str], Mapping[str, Any], str]]:
+    """Each port table, with what its keys may reach and what to say when one does not.
+
+    What a key may reach is given as a mapping of the text a pattern is matched against to
+    the key the resolved table uses for it: the dictionary name itself for three of the four,
+    and ``<packet set>.<packet>`` for the packets, which are named by their set as well.
+    """
     yield (
         PortKind.COMMAND,
         config.command_ports,
-        {command.name for command in dictionary.commands},
+        {str(command.name): command.name for command in dictionary.commands},
         "matches no command in the dictionary",
     )
     yield (
         PortKind.EVENT,
         config.event_ports,
-        {event.name for event in dictionary.events},
+        {str(event.name): event.name for event in dictionary.events},
         "matches no event in the dictionary",
     )
     yield (
         PortKind.TELEMETRY,
         config.telemetry_ports,
-        {channel.name for channel in dictionary.channels},
+        {str(channel.name): channel.name for channel in dictionary.channels},
         "matches no telemetry channel in the dictionary",
     )
     yield (
         PortKind.PACKET,
         config.packet_ports,
-        _packet_names(dictionary),
+        {name: name for name in _packet_names(dictionary)},
         "matches no telemetry packet in the dictionary; a packet is named "
         "<packet set>.<packet>",
     )
 
 
-def _check_port_hooks(dictionary: Dictionary, config: Config) -> None:
-    """Check every port hook against the dictionary and against the other hooks.
+def _resolve_hooks(dictionary: Dictionary, config: Config) -> _Ports:
+    """Resolve the four port tables against the dictionary, patterns and all."""
+    resolved = {
+        kind: _resolve_table(_PORT_LABELS[kind], table, known, absent)
+        for kind, table, known, absent in _port_tables(dictionary, config)
+    }
+    return _Ports(
+        commands=resolved[PortKind.COMMAND],
+        events=resolved[PortKind.EVENT],
+        channels=resolved[PortKind.TELEMETRY],
+        packets=resolved[PortKind.PACKET],
+    )
+
+
+def _resolve_table(
+    label: str,
+    table: Mapping[Any, bool | str],
+    known: Mapping[str, Target],
+    absent: str,
+) -> dict[Target, bool | str]:
+    """One port table keyed by what its entries reached, rather than by the entries.
+
+    Once a key may be a pattern, two keys can reach one member and disagree, so the table is
+    resolved in two passes.  Patterns first, where a refusal beats a request: that is what
+    lets ``Ref.dpDemo.*: true`` hook an instance while ``"*_PRM_SET": false`` keeps the
+    parameter commands in it unhooked, whichever order the two are written in.  Then the
+    entries that name one member outright, which say what that member gets whatever a
+    pattern over it asked for -- so switching one hook off, or naming one port, does not mean
+    abandoning the pattern that covers the rest.
+
+    An entry asking for no port leaves nothing behind, since what it asks for is what saying
+    nothing asks for.
+    """
+    hooks: dict[Target, bool | str] = {}
+    refused: set[Target] = set()
+    for entry, value, reached in _table_entries(
+        label, table, known, absent, pattern=True
+    ):
+        if isinstance(value, str):
+            raise NamingError(
+                f"{label} for {entry}: a pattern cannot name a port outright, because "
+                f"every one of the {len(reached)} member(s) it matches would ask to be "
+                f"called {value!r}; say true and let each name be derived, or key the "
+                "entry by the one member you meant"
+            )
+        if value:
+            hooks.update(dict.fromkeys(reached, True))
+        else:
+            refused.update(reached)
+    for target in refused:
+        hooks.pop(target, None)
+    for _, value, reached in _table_entries(label, table, known, absent, pattern=False):
+        for target in reached:
+            if value:
+                hooks[target] = value
+            else:
+                hooks.pop(target, None)
+    return hooks
+
+
+def _table_entries(
+    label: str,
+    table: Mapping[Any, bool | str],
+    known: Mapping[str, Target],
+    absent: str,
+    *,
+    pattern: bool,
+) -> Iterator[tuple[Any, bool | str, list[Target]]]:
+    """``table``'s pattern entries, or the ones naming a member, with what each reached.
+
+    An entry that reaches nothing is refused rather than ignored, exactly as an ``omit``
+    entry is and for the same reason.  A near miss is suggested only for a name, since a
+    pattern that matches nothing is as likely to be a pattern for a dictionary this is not.
+    """
+    for entry in sorted(table, key=str):
+        spelled = str(entry)
+        if bool(_GLOB.search(spelled)) is not pattern:
+            continue
+        reached = [
+            target
+            for candidate, target in known.items()
+            if fnmatch.fnmatchcase(candidate, spelled)
+        ]
+        if not reached:
+            hint = "" if pattern else _suggestion(spelled, known)
+            raise NamingError(f"{label} for {entry}: {absent}{hint}")
+        yield entry, table[entry], reached
+
+
+def _check_port_hooks(config: Config, ports: _Ports) -> None:
+    """Check every port the tables asked for against the other ports there will be.
 
     Port names share one FPP name group, so uniqueness is checked across all four tables at
     once -- and against the ports the proxy declares itself, which is what a hook called
-    ``comOut`` would quietly take over.
+    ``comOut`` would quietly take over.  Whether a hook reaches anything at all is
+    :func:`_resolve_table`'s question, and is already settled by the time this runs.
     """
-    if not config.packetized and _hooked(config.packet_ports):
+    if not config.packetized and ports.packets:
         # Nothing would decode the packet, so the port would be declared and never
         # invoked.  Refused rather than dropped, for the reason every other unusable
         # request here is: a hook that silently does nothing is worse than one that
@@ -892,20 +1031,15 @@ def _check_port_hooks(dictionary: Dictionary, config: Config) -> None:
         raise NamingError(
             "packet ports were asked for but packetized telemetry is turned off, so "
             "nothing would decode the packets they hook: "
-            + ", ".join(sorted(str(name) for name in _hooked(config.packet_ports)))
+            + ", ".join(sorted(ports.packets))
         )
     chosen: dict[str, str] = {}
     reserved = {name.casefold() for name in RESERVED_PORT_NAMES}
-    for kind, table, known, absent in _port_tables(dictionary, config):
+    for kind, table in ports.tables():
         for target, value in sorted(table.items(), key=lambda item: str(item[0])):
-            context = f"{_PORT_LABELS[kind]} for {target}"
-            if target not in known:
-                raise NamingError(
-                    f"{context}: {absent}"
-                    f"{_suggestion(str(target), [str(k) for k in known])}"
-                )
             if not isinstance(value, str):
-                continue  # true takes the derived name, false is not a hook at all
+                continue  # true takes the derived name
+            context = f"{_PORT_LABELS[kind]} for {target}"
             check_member_identifier(value, context)
             if value.casefold() in reserved:
                 raise NamingError(
@@ -920,17 +1054,9 @@ def _check_port_hooks(dictionary: Dictionary, config: Config) -> None:
                 )
 
 
-def _hooked(table: Mapping[Any, bool | str]) -> set[Any]:
-    """The keys of ``table`` that ask for a port; ``false`` asks for nothing."""
-    return {target for target, value in table.items() if value}
-
-
 # ---------------------------------------------------------------------------
 # Selection: which members the component declares, and which it decodes
 # ---------------------------------------------------------------------------
-
-#: Text that makes an :attr:`Config.omit` entry a pattern rather than a name.
-_GLOB = re.compile(r"[*?\[]")
 
 
 @dataclass(frozen=True)
@@ -1052,7 +1178,9 @@ def _omitted(dictionary: Dictionary, config: Config) -> _Omitted:
     )
 
 
-def _select(dictionary: Dictionary, config: Config, warnings: list[str]) -> _Selection:
+def _select(
+    dictionary: Dictionary, config: Config, ports: _Ports, warnings: list[str]
+) -> _Selection:
     """Work out what each member kind keeps, and what that leaves for the packets.
 
     Commands and events are self-contained on the wire -- one packet carries one of them --
@@ -1066,18 +1194,16 @@ def _select(dictionary: Dictionary, config: Config, warnings: list[str]) -> _Sel
     commands = _kind_selection(
         (command.name for command in dictionary.commands),
         omitted.commands,
-        _hooked(config.command_ports),
+        ports.commands.keys(),
     )
     events = _kind_selection(
         (event.name for event in dictionary.events),
         omitted.events,
-        _hooked(config.event_ports),
+        ports.events.keys(),
     )
     channel_names = [channel.name for channel in dictionary.channels]
-    reported = _kind_selection(
-        channel_names, omitted.channels, _hooked(config.telemetry_ports)
-    )
-    packets = _kept_packets(dictionary, config, reported.present)
+    reported = _kind_selection(channel_names, omitted.channels, ports.channels.keys())
+    packets = _kept_packets(dictionary, config, ports, reported.present)
     channels = _KindSelection(
         present=(
             frozenset(channel_names)
@@ -1087,7 +1213,7 @@ def _select(dictionary: Dictionary, config: Config, warnings: list[str]) -> _Sel
         declared=reported.declared,
     )
 
-    _report_omissions(dictionary, config, omitted, warnings)
+    _report_omissions(dictionary, config, ports, omitted, warnings)
     return _Selection(
         commands=commands,
         events=events,
@@ -1120,7 +1246,10 @@ def _kind_selection(
 
 
 def _kept_packets(
-    dictionary: Dictionary, config: Config, reported: Collection[QualifiedName]
+    dictionary: Dictionary,
+    config: Config,
+    ports: _Ports,
+    reported: Collection[QualifiedName],
 ) -> frozenset[str]:
     """The packets worth decoding: ones with something to report, or a port of their own.
 
@@ -1129,11 +1258,12 @@ def _kept_packets(
     """
     if not config.packetized:
         return frozenset()
-    hooked = _hooked(config.packet_ports)
     kept: set[str] = set()
     for packet_set, packet in _packets(dictionary):
         qualified = f"{packet_set.name}.{packet.name}"
-        if qualified in hooked or any(member in reported for member in packet.members):
+        if qualified in ports.packets or any(
+            member in reported for member in packet.members
+        ):
             kept.add(qualified)
     return frozenset(kept)
 
@@ -1162,6 +1292,7 @@ def _packet_members(
 def _report_omissions(
     dictionary: Dictionary,
     config: Config,
+    ports: _Ports,
     omitted: _Omitted,
     warnings: list[str],
 ) -> None:
@@ -1182,11 +1313,7 @@ def _report_omissions(
         "members after each omission move, and any ground archive keyed on the old ones "
         "no longer reads"
     )
-    ported = (
-        _hooked(config.command_ports)
-        | _hooked(config.event_ports)
-        | _hooked(config.telemetry_ports)
-    )
+    ported = ports.commands.keys() | ports.events.keys() | ports.channels.keys()
     # A name may belong to a member of more than one kind -- the Ref dictionary has an
     # event and a channel sharing one -- so an override is idle only once every kind that
     # has such a member has dropped it.
@@ -1412,14 +1539,13 @@ class _Hook:
     """What the table said: ``True`` for the derived name, or the name to use."""
 
 
-def _hook_ports(plan: Plan, warnings: list[str]) -> Plan:
-    """Attach a :class:`PortPlan` to every member the port tables named.
+def _hook_ports(plan: Plan, ports: _Ports, warnings: list[str]) -> Plan:
+    """Attach a :class:`PortPlan` to every member the port tables reached.
 
     Done after the members are planned rather than during, because a port's derived name and
     type come from the member's *identifier*, which mangling only settles once it has seen
     every name of that kind.
     """
-    config = plan.config
     placed: list[tuple[str, int]] = []
     hooks: list[_Hook] = []
 
@@ -1429,25 +1555,29 @@ def _hook_ports(plan: Plan, warnings: list[str]) -> Plan:
             hooks.append(hook)
 
     for index, command in enumerate(plan.commands):
-        collect("commands", _command_hook(plan, command), index)
+        requested = ports.commands.get(command.source.name, False)
+        collect("commands", _command_hook(plan, command, requested), index)
     for index, event in enumerate(plan.events):
-        collect("events", _event_hook(plan, event), index)
+        requested = ports.events.get(event.source.name, False)
+        collect("events", _event_hook(plan, event, requested), index)
     for index, channel in enumerate(plan.channels):
-        collect("channels", _channel_hook(plan, channel), index)
+        requested = ports.channels.get(channel.source.name, False)
+        collect("channels", _channel_hook(plan, channel, requested), index)
     for index, packet in enumerate(plan.packets):
-        collect("packets", _packet_hook(plan, packet), index)
+        requested = ports.packets.get(packet.qualified_name, False)
+        collect("packets", _packet_hook(plan, packet, requested), index)
 
     if not hooks:
         return plan
 
-    ports = _named_ports(plan, hooks, warnings)
+    named = _named_ports(plan, hooks, warnings)
     updated: dict[str, list[Any]] = {
         "commands": list(plan.commands),
         "events": list(plan.events),
         "channels": list(plan.channels),
         "packets": list(plan.packets),
     }
-    for (field_name, index), port in zip(placed, ports):
+    for (field_name, index), port in zip(placed, named):
         collection = updated[field_name]
         collection[index] = replace(collection[index], port=port)
     return replace(
@@ -1547,8 +1677,9 @@ def _time_param(name: str, annotation: str) -> PortParam:
     return PortParam(name=name, fpp=_TIME_FPP, cpp=_TIME_CPP, annotation=annotation)
 
 
-def _command_hook(plan: Plan, command: CommandPlan) -> _Hook | None:
-    requested = plan.config.command_ports.get(command.source.name, False)
+def _command_hook(
+    plan: Plan, command: CommandPlan, requested: bool | str
+) -> _Hook | None:
     if not requested:
         return None
     reporting = (
@@ -1574,8 +1705,7 @@ def _command_hook(plan: Plan, command: CommandPlan) -> _Hook | None:
     )
 
 
-def _event_hook(plan: Plan, event: EventPlan) -> _Hook | None:
-    requested = plan.config.event_ports.get(event.source.name, False)
+def _event_hook(plan: Plan, event: EventPlan, requested: bool | str) -> _Hook | None:
     if not requested:
         return None
     return _Hook(
@@ -1593,8 +1723,9 @@ def _event_hook(plan: Plan, event: EventPlan) -> _Hook | None:
     )
 
 
-def _channel_hook(plan: Plan, channel: ChannelPlan) -> _Hook | None:
-    requested = plan.config.telemetry_ports.get(channel.source.name, False)
+def _channel_hook(
+    plan: Plan, channel: ChannelPlan, requested: bool | str
+) -> _Hook | None:
     if not requested:
         return None
     return _Hook(
@@ -1619,8 +1750,7 @@ def _channel_hook(plan: Plan, channel: ChannelPlan) -> _Hook | None:
     )
 
 
-def _packet_hook(plan: Plan, packet: PacketPlan) -> _Hook | None:
-    requested = plan.config.packet_ports.get(packet.qualified_name, False)
+def _packet_hook(plan: Plan, packet: PacketPlan, requested: bool | str) -> _Hook | None:
     if not requested:
         return None
     return _Hook(

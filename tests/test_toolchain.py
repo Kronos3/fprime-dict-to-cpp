@@ -255,6 +255,23 @@ HOOKS: dict[str, object] = {
 #: The same, with everything omitted, which is the "ports only" component.
 PORTS_ONLY: dict[str, object] = {**HOOKS, "omit": ("*",)}
 
+#: Hooks asked for by pattern rather than by name, which is where the derived names and
+#: the generated port types arrive in bulk: one glob over an instance's commands, a second
+#: keeping its parameter setters out, one name settling a port of its own, and a glob over
+#: every channel of an instance.  ``fpp-check`` is the authority on whether twenty-odd
+#: derived port names and port types are all still legal and all still distinct.
+GLOBBED: dict[str, object] = {
+    "omit": ("*",),
+    "command_ports": {
+        QualifiedName.parse("Ref.typeDemo.*"): True,
+        QualifiedName.parse("*_PRM_SET"): False,
+        QualifiedName.parse("CdhCore.cmdDisp.CMD_NO_OP"): "pingRemote",
+    },
+    "event_ports": {QualifiedName.parse("Ref.dpDemo.*"): True},
+    "telemetry_ports": {QualifiedName.parse("CdhCore.cmdDisp.*"): True},
+    "packet_ports": {"RefPackets.SigGen1*": True},
+}
+
 
 class TestHookedPorts:
     """The port hooks and ``omit``, which change both halves of the output at once."""
@@ -279,8 +296,28 @@ class TestHookedPorts:
         result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
+    def test_fpp_check_accepts_ports_hooked_by_pattern(
+        self, toolchain: Toolchain, ref: Dictionary, tmp_path: Path
+    ) -> None:
+        plan = resolve(
+            ref,
+            Config(
+                component="RefProxy",
+                namespace="RefProxy",
+                naming=Naming.preset("instance"),
+                **GLOBBED,  # type: ignore[arg-type]
+            ),
+        )
+        # Enough ports that a collision among the derived names would be likely rather
+        # than possible, and none of them needed adjusting to stay unique.
+        assert len(plan.ports) > 20
+        assert not any("needed a suffix" in w for w in plan.warnings)
+        result = toolchain.check(_write_model(tmp_path, plan))
+        assert result.returncode == 0, result.stdout + result.stderr
+
     @pytest.mark.parametrize(
-        ("label", "options"), [("hooked", HOOKS), ("ports-only", PORTS_ONLY)]
+        ("label", "options"),
+        [("hooked", HOOKS), ("ports-only", PORTS_ONLY), ("globbed", GLOBBED)],
     )
     def test_compiles(
         self,

@@ -23,7 +23,7 @@ import build_probe
 from fpptools import Toolchain, find_toolchain
 
 from fprime_dict_to_cpp.fpp import render_fpp
-from fprime_dict_to_cpp.model import ComponentKind, Dictionary, QualifiedName
+from fprime_dict_to_cpp.model import ComInput, ComponentKind, Dictionary, QualifiedName
 from fprime_dict_to_cpp.naming import PRESETS, Naming
 from fprime_dict_to_cpp.plan import Config, Plan, resolve
 
@@ -76,6 +76,23 @@ class TestFppCheck:
         model_file = _write_model(tmp_path, plan)
 
         result = toolchain.check(model_file)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    @pytest.mark.parametrize("kind", list(ComponentKind))
+    def test_accepts_a_buffer_com_in(
+        self, toolchain: Toolchain, ref: Dictionary, tmp_path: Path, kind: ComponentKind
+    ) -> None:
+        plan = resolve(
+            ref,
+            Config(
+                component="RefProxy",
+                namespace="RefProxy",
+                kind=kind,
+                naming=Naming.preset("instance"),
+                com_in=ComInput.BUFFER,
+            ),
+        )
+        result = toolchain.check(_write_model(tmp_path, plan))
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_accepts_names_that_were_chosen_rather_than_mangled(

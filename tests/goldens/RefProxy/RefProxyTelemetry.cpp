@@ -79,7 +79,7 @@ namespace RefProxy {
         case 0x1003000: {
           // CdhCore.version.FrameworkVersion
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_FrameworkVersion(_value, _timeTag);
           }
@@ -88,7 +88,7 @@ namespace RefProxy {
         case 0x1003001: {
           // CdhCore.version.ProjectVersion
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_ProjectVersion(_value, _timeTag);
           }
@@ -187,7 +187,7 @@ namespace RefProxy {
         case 0x100300C: {
           // CdhCore.version.LibraryVersion01
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion01(_value, _timeTag);
           }
@@ -196,7 +196,7 @@ namespace RefProxy {
         case 0x100300D: {
           // CdhCore.version.LibraryVersion02
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion02(_value, _timeTag);
           }
@@ -205,7 +205,7 @@ namespace RefProxy {
         case 0x100300E: {
           // CdhCore.version.LibraryVersion03
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion03(_value, _timeTag);
           }
@@ -214,7 +214,7 @@ namespace RefProxy {
         case 0x100300F: {
           // CdhCore.version.LibraryVersion04
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion04(_value, _timeTag);
           }
@@ -223,7 +223,7 @@ namespace RefProxy {
         case 0x1003010: {
           // CdhCore.version.LibraryVersion05
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion05(_value, _timeTag);
           }
@@ -232,7 +232,7 @@ namespace RefProxy {
         case 0x1003011: {
           // CdhCore.version.LibraryVersion06
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion06(_value, _timeTag);
           }
@@ -241,7 +241,7 @@ namespace RefProxy {
         case 0x1003012: {
           // CdhCore.version.LibraryVersion07
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion07(_value, _timeTag);
           }
@@ -250,7 +250,7 @@ namespace RefProxy {
         case 0x1003013: {
           // CdhCore.version.LibraryVersion08
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion08(_value, _timeTag);
           }
@@ -259,7 +259,7 @@ namespace RefProxy {
         case 0x1003014: {
           // CdhCore.version.LibraryVersion09
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion09(_value, _timeTag);
           }
@@ -268,7 +268,7 @@ namespace RefProxy {
         case 0x1003015: {
           // CdhCore.version.LibraryVersion10
           Fw::StringTemplate<40> _value;
-          _status = _packet.deserializeTo(_value);
+          _status = deserializeRemoteString(_packet, _value);
           if (_status == Fw::FW_SERIALIZE_OK) {
             this->tlmWrite_version_LibraryVersion10(_value, _timeTag);
           }

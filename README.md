@@ -24,7 +24,7 @@ fprime-dict-to-cpp RefTopologyDictionary.json -o Ref/RefProxy
 
 ```
 RefProxy: 116 commands, 311 events, 163 telemetry channels, 34 telemetry packets
-  65 type definitions (5 packet-header widths, and 60 of the 99 in the dictionary; the rest are unreachable from any mirrored member)
+  66 type definitions (6 wire-format widths, and 60 of the 99 in the dictionary; the rest are unreachable from any mirrored member)
   wrote     Ref/RefProxy/CMakeLists.txt
   wrote     Ref/RefProxy/RefProxy.cpp
   wrote     Ref/RefProxy/RefProxy.fpp
@@ -62,7 +62,7 @@ or [`--cross-check`](#other-options) (`[gds]`, for `fprime-gds`).
 | File | What it is |
 | --- | --- |
 | `<Component>.fpp` | the component itself: its ports, a port type per hooked member, and an `include` of each fragment below |
-| `<Component>Types.fppi` | the remote's packet-header widths, and its enums, arrays, structs and aliases |
+| `<Component>Types.fppi` | the remote's wire-format widths, and its enums, arrays, structs and aliases |
 | `<Component>Commands.fppi` | one declaration per mirrored command |
 | `<Component>Events.fppi` | one per mirrored event, plus the proxy's own diagnostic events |
 | `<Component>Telemetry.fppi` | one per mirrored channel, plus the proxy's own diagnostic channels |
@@ -103,6 +103,13 @@ sync input port run: Svc.Sched     # queued components only: drains the queue
 plus the usual command, event, text-event, telemetry and time-get special ports.
 Connect `comIn` downstream of whatever deframes the remote's link, and `comOut` upstream
 of whatever frames it.
+
+`comIn` takes `Fw.Com` by default. With `com-in: buffer` it takes `Fw.BufferSend`
+instead, which is what `Svc.PassThroughRouter`'s `allPacketsOut` emits behind a deframer,
+and the component gains `output port comReturnOut: Fw.BufferSend` to connect back to the
+router's `allPacketsReturnIn`. Each packet is copied into a `Fw::ComBuffer`, its buffer
+handed straight back, and the copy decoded as before. `comOut` stays `Fw.Com` either way;
+put a `Svc.ComQueue` between it and a framer.
 
 Individual members of the remote's interface can also be
 [hooked onto ports of their own](#hooking-ports-onto-members), so that flight software
@@ -156,7 +163,9 @@ Iterating never undoes the setup. **The configuration file is written once** —
 to write over one, and a `--config` run never touches it — and so is `CMakeLists.txt`, which
 is reported as `kept` once it exists so that a dependency the FPP model cannot imply, or a
 target property, survives a regeneration. `--cmake` rewrites it when the file list itself
-has changed.
+has changed, and a run whose sources no longer match the kept file's says so. A source a
+run stops generating — `<Component>Events.cpp`, once every event is omitted — is
+`removed`, since the old one would decode members the model no longer declares.
 
 Four questions is all of interactive mode. Everything else is a decision better made
 against a diff than against a prompt, which is what the file it leaves behind is for. An
@@ -195,8 +204,8 @@ fprime-dict-to-cpp --config proxy.yaml -o build-artifacts/RefProxy   # flags sti
 * The file's values become the parser's defaults, so the precedence above holds for every
   option without a per-option rule.
 * Underscores work wherever a hyphen does, so `type_prefix` is as good as `type-prefix`.
-* `packetized` and `diagnostics` read **positively**, where the flags that set them read
-  negatively (`--no-packetized`, `--no-diagnostics`).
+* `packetized`, `channelized` and `diagnostics` read **positively**, where the flags that
+  set them read negatively (`--no-packetized`, `--no-channelized`, `--no-diagnostics`).
 * Relative `dictionary` and `output` paths resolve against **the file's own directory**,
   not the working directory, so a configuration committed next to a deployment keeps
   working whatever directory it is run from. (`include-prefix` is an `#include` path, not
@@ -467,9 +476,10 @@ follow from a kind list being matched per kind:
 | `-c`, `--component` | the component's name (default `<Deployment>Proxy`) |
 | `-n`, `--namespace` | the FPP module for the component and its types (default: the component name) |
 | `--no-packetized` | skip `FW_PACKET_PACKETIZED_TLM` decoding |
+| `--no-channelized` | skip `FW_PACKET_TELEM` decoding, so channels arrive only in telemetry packets; a channel no decoded packet carries is not declared |
 | `--no-diagnostics` | omit the proxy's own health telemetry and events |
 | `--type-prefix` | prepend a prefix to every generated type name |
-| `--include-prefix` | path prefix for the `#include` of the autocoded base class |
+| `--include-prefix` | path prefix for the `#include` of the autocoded base class; by default the output directory's path below the nearest enclosing `settings.ini`, `project.cmake` or `library.cmake` |
 | `--clang-format [STYLE]` | run the generated C++ through `clang-format` |
 | `--cross-check` | also parse the dictionary with `fprime-gds` and report disagreements |
 | `--dry-run` | report what would be generated without writing |
@@ -510,17 +520,25 @@ the *remote* id before being emitted through a locally-numbered event.
 
 A dictionary records the widths the remote actually serialized with — its
 `FwPacketDescriptorType`, `FwOpcodeType`, `FwEventIdType`, `FwChanIdType`,
-`FwTlmPacketizeIdType` — and the generated code reads every packet header field at
-*those* widths rather than at the local platform's. Aliases are re-declared resolved to
+`FwTlmPacketizeIdType`, and `FwSizeStoreType` as `Remote_FwSizeStoreType` — and the
+generated code reads every packet header field and string length at *those* widths
+rather than at the local platform's. Aliases are re-declared resolved to
 their underlying built-in for the same reason. This is what lets a proxy talk to a
 deployment whose `FpConfig.h` differs from its own. `Ref`, for instance, uses a 16-bit
 packet descriptor where the framework default is 32-bit.
 
+A string's length prefix is read and written by the proxy's own
+`deserializeRemoteString` and `serializeRemoteString`, so a remote whose
+`FwSizeStoreType` differs from this build's still decodes, and a packet slot holding a
+string is sized with the remote's prefix too.
+
 Two things cannot be handled that way, because the framework deserializes them itself
-using the local configuration: `Fw::Time`, and the length prefix on a string. The
-generated source carries `static_assert`s comparing the local sizes against the remote's
-recorded ones, so a configuration mismatch is a build error rather than every timestamp
-or every string being silently misread.
+using the local configuration: `Fw::Time`, and a string *inside* a mirrored struct or
+array, whose autocoded `deserializeFrom` reads its length. The generated source carries
+`static_assert`s comparing the local sizes against the remote's recorded ones — the
+second only when some mirrored struct or array does hold a string — so a configuration
+mismatch is a build error rather than every timestamp or such string being silently
+misread.
 
 ### Packetized telemetry uses fixed-width slots
 
@@ -563,7 +581,7 @@ name matches the framework's own, and it is what lets the generated C++ read a p
 header through `RefProxy_FwOpcodeType` rather than through an alias of its own invention.
 
 Only types **reachable** from a mirrored member are emitted — 60 of `Ref`'s 99, plus the
-five packet-header widths, which are declared whether anything mirrors them or not. An
+six wire-format widths, which are declared whether anything mirrors them or not. An
 unused definition costs a generated C++ file pair, and one of them actively breaks the
 build: a stray `FwSizeStoreType` shadows FPP's implied use of that name and takes every
 string in the module down with it.

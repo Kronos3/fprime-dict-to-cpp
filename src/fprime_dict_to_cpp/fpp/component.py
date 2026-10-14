@@ -17,7 +17,7 @@ order to wire the thing into a topology.
 
 from __future__ import annotations
 
-from ..model import ComponentKind, FormalParam, Limit
+from ..model import ComInput, ComponentKind, FormalParam, Limit
 from ..plan import ChannelPlan, CommandPlan, EventPlan, Plan, PortPlan
 from .keywords import escape
 from .writer import FppWriter, string_literal
@@ -62,7 +62,7 @@ def fragments(plan: Plan) -> tuple[str, ...]:
 
     A fragment with nothing in it is not written at all, so a dictionary whose commands are
     all omitted does not leave an empty ``<Component>Commands.fppi`` behind for a reader to
-    wonder about.  The types fragment is always there: the packet-header widths are
+    wonder about.  The types fragment is always there: the wire-format widths are
     declared whatever else is.
     """
     populated = {
@@ -184,8 +184,17 @@ def _ports(writer: FppWriter, plan: Plan) -> None:
             )
         )
     )
-    writer.line(f"{kind.port_kind} comIn: Fw.Com")
+    com_in = plan.config.com_in
+    writer.line(f"{kind.port_kind} comIn: {com_in.port_type}")
     writer.blank()
+
+    if com_in is ComInput.BUFFER:
+        writer.annotate(
+            "Hands each buffer received on comIn back to its sender, as soon as its "
+            "packet has been copied out."
+        )
+        writer.line("output port comReturnOut: Fw.BufferSend")
+        writer.blank()
 
     writer.annotate("Command packets addressed to the remote deployment.")
     writer.line("output port comOut: Fw.Com")

@@ -71,7 +71,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x1000001);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(arg1);
+      _status = serializeRemoteString(_packet, arg1);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -185,7 +185,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x1002001);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(entry);
+      _status = serializeRemoteString(_packet, entry);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(enable);
@@ -205,7 +205,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x1002002);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(entry);
+      _status = serializeRemoteString(_packet, entry);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(warningValue);
@@ -418,10 +418,10 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5001000);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(sourceFileName);
+      _status = serializeRemoteString(_packet, sourceFileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(destFileName);
+      _status = serializeRemoteString(_packet, destFileName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -450,10 +450,10 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5001002);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(sourceFileName);
+      _status = serializeRemoteString(_packet, sourceFileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(destFileName);
+      _status = serializeRemoteString(_packet, destFileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(startOffset);
@@ -474,7 +474,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002000);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(dirName);
+      _status = serializeRemoteString(_packet, dirName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -490,10 +490,10 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002001);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(sourceFileName);
+      _status = serializeRemoteString(_packet, sourceFileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(destFileName);
+      _status = serializeRemoteString(_packet, destFileName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -508,7 +508,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002002);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(dirName);
+      _status = serializeRemoteString(_packet, dirName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -524,7 +524,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002003);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(ignoreErrors);
@@ -543,10 +543,10 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002005);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(source);
+      _status = serializeRemoteString(_packet, source);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(target);
+      _status = serializeRemoteString(_packet, target);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -561,7 +561,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002006);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -576,7 +576,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002007);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(dirName);
+      _status = serializeRemoteString(_packet, dirName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -591,7 +591,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5002008);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(filename);
+      _status = serializeRemoteString(_packet, filename);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -618,7 +618,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x5003001);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(merge);
@@ -993,7 +993,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x10006000);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(block);
@@ -1011,7 +1011,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x10006001);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -1093,7 +1093,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x10007000);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(block);
@@ -1122,7 +1122,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x10007002);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -1138,10 +1138,10 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x10007003);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(fileName);
+      _status = serializeRemoteString(_packet, fileName);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(name);
+      _status = serializeRemoteString(_packet, name);
     }
     this->sendCommandPacket(opCode, cmdSeq, _packet, _status);
   }
@@ -1157,7 +1157,7 @@ namespace RefProxy {
     Fw::ComBuffer _packet;
     Fw::SerializeStatus _status = this->beginCommandPacket(_packet, 0x10007004);
     if (_status == Fw::FW_SERIALIZE_OK) {
-      _status = _packet.serializeFrom(module);
+      _status = serializeRemoteString(_packet, module);
     }
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.serializeFrom(block);

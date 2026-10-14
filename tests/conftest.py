@@ -29,6 +29,28 @@ GOLDENS = Path(__file__).parent / "goldens"
 UPDATE_GOLDENS = os.environ.get("FDTC_UPDATE_GOLDENS") == "1"
 
 
+class _PassThrough:
+    """Stands in for a formatter: returns what it was given."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+    def __call__(self, text: str, file_name: str) -> str:
+        return text
+
+
+@pytest.fixture(autouse=True)
+def _no_external_formatters(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``clang-format`` is on at the command line, so the CLI tests would otherwise need
+    it installed to test anything else.  A test marked ``formatters`` gets the real one.
+    """
+    if request.node.get_closest_marker("formatters") is not None:
+        return
+    monkeypatch.setattr("fprime_dict_to_cpp.generate.ClangFormat", _PassThrough)
+
+
 def assert_matches_golden(text: str, name: str) -> None:
     """Assert ``text`` is byte-identical to the golden file ``name``.
 

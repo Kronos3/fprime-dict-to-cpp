@@ -70,6 +70,7 @@ fprime_dict_to_cpp = ["py.typed"]
 testpaths = ["tests"]
 markers = [
     "integration: needs a real FPP toolchain and a C++ compiler; skips itself without one",
+    "formatters: runs the real clang-format rather than a pass-through",
 ]
 
 [tool.mypy]

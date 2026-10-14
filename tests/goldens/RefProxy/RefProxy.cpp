@@ -6,7 +6,10 @@
 
 #include "RefProxy/RefProxy.hpp"
 
-// Fw::Time and Fw::StringBase deserialize themselves using this build's
+#include <algorithm>
+#include <limits>
+
+// Fw::Time and autocoded types deserialize themselves using this build's
 // configuration, which the generated code cannot override.  The remote's own
 // widths are recorded in Ref.Ref's dictionary,
 // so a disagreement is a build error rather than silent corruption.
@@ -14,9 +17,13 @@ static_assert(
     Fw::Time::SERIALIZED_SIZE == 11,
     "the remote serializes Fw::Time in 11 bytes; this build disagrees, so every packet timestamp would be misread"
 );
+
+// Svc.CustomVersionDb holds a string, which only autocoded
+// serialization can reach; every other string is read at the remote's
+// ::RefProxy::RefProxy_Remote_FwSizeStoreType, whatever this build's is.
 static_assert(
     sizeof(FwSizeStoreType) == 2,
-    "the remote prefixes strings with a 2-byte length; this build disagrees, so every string would be misread"
+    "the remote prefixes strings with a 2-byte length; this build disagrees, so a string inside a mirrored struct or array would be misread"
 );
 
 namespace RefProxy {
@@ -163,6 +170,43 @@ namespace RefProxy {
     this->m_packetsIgnored++;
     this->tlmWrite_ProxyPacketsIgnored(this->m_packetsIgnored);
     this->log_DIAGNOSTIC_ProxyPacketIgnored(descriptor, identifier);
+  }
+
+  Fw::SerializeStatus RefProxy ::
+    serializeRemoteString(
+        Fw::ComBuffer& packet,
+        const Fw::StringBase& value
+    )
+  {
+    const FwSizeType length = std::min(static_cast<FwSizeType>(value.length()), static_cast<FwSizeType>(std::numeric_limits<::RefProxy::RefProxy_Remote_FwSizeStoreType>::max()));
+    Fw::SerializeStatus status = packet.serializeFrom(static_cast<::RefProxy::RefProxy_Remote_FwSizeStoreType>(length));
+    if (status == Fw::FW_SERIALIZE_OK) {
+      status = packet.serializeFrom(reinterpret_cast<const U8*>(value.toChar()), length, Fw::Serialization::OMIT_LENGTH);
+    }
+    return status;
+  }
+
+  Fw::SerializeStatus RefProxy ::
+    deserializeRemoteString(
+        Fw::ComBuffer& packet,
+        Fw::StringBase& value
+    )
+  {
+    ::RefProxy::RefProxy_Remote_FwSizeStoreType length = 0;
+    Fw::SerializeStatus status = packet.deserializeTo(length);
+    if (status != Fw::FW_SERIALIZE_OK) {
+      return status;
+    }
+    FwSizeType actualSize = static_cast<FwSizeType>(length);
+    if (actualSize > value.maxLength()) {
+      return Fw::FW_DESERIALIZE_SIZE_MISMATCH;
+    }
+    // Fw::StringBase hands out only a const view of its storage, and
+    // deserializeFrom writes through it the same way.
+    CHAR* raw = const_cast<CHAR*>(value.toChar());
+    status = packet.deserializeTo(reinterpret_cast<U8*>(raw), actualSize, Fw::Serialization::OMIT_LENGTH);
+    raw[(status == Fw::FW_SERIALIZE_OK) ? actualSize : 0] = 0;
+    return status;
   }
 
 }

@@ -12,10 +12,12 @@ Two details govern most of the code:
 taken from its dictionary rather than from the local ``FpConfig.h``.  Those widths are
 declared in the model as the component's own ``FwOpcodeType`` and friends, so a header
 field is read through ``RefProxy_FwOpcodeType`` rather than through a ``using`` alias this
-file would have had to invent.  Where the framework does the deserializing for us --
-``Fw::Time``, and the length prefix on a string -- we cannot substitute a width, so the
-generated file carries ``static_assert``\\ s that turn a configuration mismatch into a
-compile error instead of silent corruption.
+file would have had to invent.  A string's length prefix is the same, read and written
+by this file's own helpers at the remote's ``FwSizeStoreType``.  Where the framework does
+the deserializing for us -- ``Fw::Time``, and a string inside an autocoded struct or
+array -- we cannot substitute a width, so the generated file carries
+``static_assert``\\ s that turn a configuration mismatch into a compile error instead of
+silent corruption.
 
 *Fixed-width slots.*  Channelized telemetry packs values end to end, but a packetized
 telemetry packet gives every channel a slot as wide as its type's *maximum* serialized
@@ -30,11 +32,13 @@ from fprime_cpp_codegen import Body, ClassBuilder, CppDocBuilder, Output, fprime
 from ..model import (
     AliasDef,
     ArrayDef,
+    ComInput,
     ComponentKind,
     EnumDef,
     FormalParam,
     StructDef,
     TypeKind,
+    TypeRef,
 )
 from ..plan import (
     ChannelPlan,
@@ -45,23 +49,28 @@ from ..plan import (
     PortParam,
     PortPlan,
 )
-from ..spelling import WIRE_TYPE_NAMES, Context, safe_identifier
+from ..spelling import SIZE_STORE_TYPE, WIRE_TYPE_NAMES, Context, safe_identifier
 
 __all__ = ["cpp_file_names", "render_implementation"]
 
-#: The remote packet-header widths this file reads, by what each one is a width *of*.
+#: The remote wire widths this file reads, by what each one is a width *of*.
 #:
 #: The values are the dictionary's alias names, so the generated C++ spelling comes out of
 #: :class:`~fprime_dict_to_cpp.spelling.TypeNamer` and honours a type name override.
-_DESCRIPTOR_TYPE, _OPCODE_TYPE, _EVENT_ID_TYPE, _CHANNEL_ID_TYPE, _PACKET_ID_TYPE = (
-    WIRE_TYPE_NAMES
-)
+(
+    _DESCRIPTOR_TYPE,
+    _OPCODE_TYPE,
+    _EVENT_ID_TYPE,
+    _CHANNEL_ID_TYPE,
+    _PACKET_ID_TYPE,
+    _SIZE_STORE_TYPE,
+) = WIRE_TYPE_NAMES
 
 #: The sections the implementation is split across, beyond its default source file.
 #:
 #: A dictionary the size of Ref's produces thousands of lines of decoder, and one
 #: translation unit holding all of it is slow to compile and awkward to read.
-_SECTIONS = ("Commands", "Events", "Telemetry", "Packets")
+SECTIONS = ("Commands", "Events", "Telemetry", "Packets")
 
 _OK = "Fw::FW_SERIALIZE_OK"
 
@@ -101,13 +110,13 @@ def cpp_file_names(plan: Plan) -> list[str]:
     }
     return [
         f"{plan.config.component}{section}"
-        for section in _SECTIONS
+        for section in SECTIONS
         if populated[section]
     ]
 
 
 def _wire(plan: Plan, alias: str) -> str:
-    """How the generated C++ names one of the remote's packet-header widths."""
+    """How the generated C++ names one of the remote's wire widths."""
     return plan.spelling.namer.cpp(alias)
 
 
@@ -133,8 +142,8 @@ def render_implementation(plan: Plan) -> CppDocBuilder:
     )
     doc.include(config.base_header)
     # The base class includes a generated type's header only where a declared member or a
-    # hooked port's formal has that type, and the packet-header widths are declared whether
-    # anything mirrors them or not.  This class names all five, so it asks for them itself.
+    # hooked port's formal has that type, and the wire widths are declared whether
+    # anything mirrors them or not.  This class names all six, so it asks for them itself.
     doc.include(*_wire_type_headers(plan))
     supplementals = cpp_file_names(plan)
     # Before the component's own header, deliberately.  fpp-to-cpp writes
@@ -150,6 +159,9 @@ def render_implementation(plan: Plan) -> CppDocBuilder:
         for decoder in decoders:
             doc.include(header, output=Output.CPP, cpp_file=decoder)
     doc.include(own_header, output=Output.CPP)
+    if _string_directions(plan)[0]:
+        # serializeRemoteString clamps a length to what the remote's prefix can hold.
+        doc.system_include("algorithm", "limits", output=Output.CPP)
     for supplemental in supplementals:
         doc.include(own_header, output=Output.CPP, cpp_file=supplemental)
 
@@ -184,7 +196,7 @@ _GENERATED_HEADERS: tuple[tuple[type, str], ...] = (
 
 
 def _wire_type_headers(plan: Plan) -> list[str]:
-    """The generated headers for the remote's packet-header aliases."""
+    """The generated headers for the remote's wire-format aliases."""
     prefix = plan.config.include_prefix
     names = [
         f"{plan.spelling.namer.cpp_name(alias)}AliasAc.hpp" for alias in WIRE_TYPE_NAMES
@@ -258,19 +270,21 @@ def _class_comment(plan: Plan) -> str:
 def _platform_asserts(doc: CppDocBuilder, plan: Plan) -> None:
     """Assert the assumptions the generated code cannot express as a width.
 
-    Packet header fields are read at the remote's recorded widths, so they need no
-    assertion.  These two are different: the framework's own code does the
-    deserializing, using the *local* configuration, and there is no way to ask it for
-    another.  A mismatch would misread every timestamp or every string, so it is worth a
-    compile error.
+    Packet header fields and string lengths are read at the remote's recorded widths, so
+    they need no assertion.  What is left is where the framework's own code does the
+    deserializing, using the *local* configuration, with no way to ask it for another:
+    every ``Fw::Time``, and a string inside a mirrored struct or array, whose autocoded
+    ``deserializeFrom`` reads the length itself.  A mismatch would misread them, so it is
+    worth a compile error.
     """
     dictionary = plan.dictionary
     time_size = _remote_time_size(plan)
-    size_store = _alias_width(plan, "FwSizeStoreType")
+    nested = plan.spelling.nested_strings()
+    size_store = _alias_width(plan, SIZE_STORE_TYPE) if nested else None
 
     lines = [
         "",
-        "// Fw::Time and Fw::StringBase deserialize themselves using this build's",
+        "// Fw::Time and autocoded types deserialize themselves using this build's",
         "// configuration, which the generated code cannot override.  The remote's own",
         f"// widths are recorded in {dictionary.metadata.deployment_name}'s dictionary,",
         "// so a disagreement is a build error rather than silent corruption.",
@@ -285,10 +299,17 @@ def _platform_asserts(doc: CppDocBuilder, plan: Plan) -> None:
         ]
     if size_store is not None:
         lines += [
+            "",
+            f"// {', '.join(nested[:3])}{', ...' if len(nested) > 3 else ''} "
+            f"{'holds' if len(nested) == 1 else 'hold'} a string, which only "
+            "autocoded",
+            "// serialization can reach; every other string is read at the remote's",
+            f"// {plan.spelling.namer.cpp(SIZE_STORE_TYPE)}, whatever this build's is.",
             f"static_assert(",
             f"    sizeof(FwSizeStoreType) == {size_store},",
             f'    "the remote prefixes strings with a {size_store}-byte length; this '
-            f'build disagrees, so every string would be misread"',
+            f"build disagrees, so a string inside a mirrored struct or array would be "
+            f'misread"',
             f");",
         ]
     doc.lines("\n".join(lines), output=Output.CPP)
@@ -390,8 +411,15 @@ def _port_handlers(cls: ClassBuilder, plan: Plan) -> None:
             comment="Decode one packet received from the remote deployment",
         )
         handler.param("FwIndexType", "portNum", comment="The port number")
-        handler.param("Fw::ComBuffer&", "data", comment="Buffer containing the packet")
-        handler.param("U32", "context", comment="Call context; unused")
+        if plan.config.com_in is ComInput.BUFFER:
+            handler.param(
+                "Fw::Buffer&", "buffer", comment="Buffer containing the packet"
+            )
+        else:
+            handler.param(
+                "Fw::ComBuffer&", "data", comment="Buffer containing the packet"
+            )
+            handler.param("U32", "context", comment="Call context; unused")
         _com_in_body(handler.body, plan)
 
         if kind is ComponentKind.QUEUED:
@@ -426,12 +454,28 @@ def _port_handlers(cls: ClassBuilder, plan: Plan) -> None:
 def _com_in_body(body: Body, plan: Plan) -> None:
     with body as b:
         b.line("(void)portNum;")
-        b.line("(void)context;")
-        b.comment(
-            "With FW_DIRECT_PORT_CALLS a synchronous caller hands over its own buffer,\n"
-            "cursor and all, so where deserialization starts is not ours to assume."
-        )
-        b.line("data.resetDeser();")
+        if plan.config.com_in is ComInput.BUFFER:
+            b.comment(
+                "Copied out, so the buffer can go straight back to its sender rather\n"
+                "than be held for however long decoding takes.  A packet too long for\n"
+                "a Fw::ComBuffer is one no Fw.Com link could have carried either."
+            )
+            b.line("Fw::ComBuffer data;")
+            b.line(
+                "const Fw::SerializeStatus _copied = data.setBuff(buffer.getData(), "
+                "static_cast<Fw::Serializable::SizeType>(buffer.getSize()));"
+            )
+            b.line("this->comReturnOut_out(0, buffer);")
+            with b.if_(f"_copied != {_OK}"):
+                b.line("this->recordDecodeError(0, 0, _copied);")
+                b.line("return;")
+        else:
+            b.line("(void)context;")
+            b.comment(
+                "With FW_DIRECT_PORT_CALLS a synchronous caller hands over its own buffer,\n"
+                "cursor and all, so where deserialization starts is not ours to assume."
+            )
+            b.line("data.resetDeser();")
         b.blank()
         b.line(f"{_wire(plan, _DESCRIPTOR_TYPE)} {_DESCRIPTOR} = 0;")
         b.line("const Fw::SerializeStatus _status = data.deserializeTo(_descriptor);")
@@ -512,7 +556,7 @@ def _command_handler(cls: ClassBuilder, plan: Plan, command: CommandPlan) -> Non
         )
         for param in source.params:
             with b.if_(f"{_STATUS} == {_OK}"):
-                b.line(f"{_STATUS} = {_PACKET}.serializeFrom({_param_name(param)});")
+                _serialize(b, plan.spelling.is_string(param.type), _param_name(param))
         b.line(f"this->sendCommandPacket(opCode, cmdSeq, {_PACKET}, {_STATUS});")
 
 
@@ -558,11 +602,26 @@ def _serialize_port_argument(b: Body, param: PortParam) -> None:
     """
     name = safe_identifier(param.name)
     if param.string_size is None:
-        b.line(f"{_STATUS} = {_PACKET}.serializeFrom({name});")
+        _serialize(b, param.string, name)
         return
     clamped = f"_clamped{name[:1].upper()}{name[1:]}"
     b.line(f"const Fw::StringTemplate<{param.string_size}> {clamped}({name});")
-    b.line(f"{_STATUS} = {_PACKET}.serializeFrom({clamped});")
+    _serialize(b, True, clamped)
+
+
+def _serialize(b: Body, string: bool, name: str) -> None:
+    """Serialize one value into the outgoing packet, a string at the remote's width."""
+    if string:
+        b.line(f"{_STATUS} = serializeRemoteString({_PACKET}, {name});")
+    else:
+        b.line(f"{_STATUS} = {_PACKET}.serializeFrom({name});")
+
+
+def _deserialize(plan: Plan, ref: TypeRef, name: str) -> str:
+    """The statement that reads one value out of the inbound packet."""
+    if plan.spelling.is_string(ref):
+        return f"{_STATUS} = deserializeRemoteString({_PACKET}, {name});"
+    return f"{_STATUS} = {_PACKET}.deserializeTo({name});"
 
 
 def _port_comment(port: PortPlan) -> str:
@@ -709,7 +768,7 @@ def _read_arguments(b: Body, plan: Plan, params: tuple[FormalParam, ...]) -> Non
         local = plan.spelling.cpp_type(param.type, Context.LOCAL)
         name = _param_name(param)
         b.line(f"{local} {name}{_initializer(plan, param)};")
-        read = f"{_STATUS} = {_PACKET}.deserializeTo({name});"
+        read = _deserialize(plan, param.type, name)
         if index == 0:
             b.line(read)
         else:
@@ -803,7 +862,7 @@ def _write_channel(
         plan, FormalParam(name=local_name, type=channel.source.type)
     )
     b.line(f"{local} {local_name}{initializer};")
-    b.line(f"{_STATUS} = {_PACKET}.deserializeTo({local_name});")
+    b.line(_deserialize(plan, channel.source.type, local_name))
     if not channel.decoded:
         b.line(f"(void){local_name};")
         return
@@ -938,7 +997,7 @@ def _slot(index: int) -> str:
 
 def _read_slot(b: Body, plan: Plan, channel: ChannelPlan, local_name: str) -> None:
     """Read one slot of a ported packet into its already-declared local, and report it."""
-    b.line(f"{_STATUS} = {_PACKET}.deserializeTo({local_name});")
+    b.line(_deserialize(plan, channel.source.type, local_name))
     if not channel.declared and channel.port is None:
         return
     with b.if_(f"{_STATUS} == {_OK}"):
@@ -965,6 +1024,99 @@ def _helpers(cls: ClassBuilder, plan: Plan) -> None:
         _record_packet_ignored(cls, plan)
         if plan.input_ports:
             _record_forward_error(cls, plan)
+        writes, reads = _string_directions(plan)
+        if writes:
+            _serialize_remote_string(cls, plan)
+        if reads:
+            _deserialize_remote_string(cls, plan)
+
+
+def _string_directions(plan: Plan) -> tuple[bool, bool]:
+    """Whether any string goes out to the remote, and whether any comes in from it."""
+    is_string = plan.spelling.is_string
+    writes = any(
+        is_string(param.type)
+        for command in plan.declared_commands
+        for param in command.source.params
+    ) or any(param.string for port in plan.input_ports for param in port.params)
+    read = [
+        *(param.type for event in plan.decoded_events for param in event.source.params),
+        *(
+            channel.source.type
+            for packet in plan.packets
+            for channel in packet.channels
+        ),
+        *(
+            channel.source.type
+            for channel in (plan.channels if plan.decodes_channels else ())
+        ),
+    ]
+    return writes, any(is_string(ref) for ref in read)
+
+
+def _serialize_remote_string(cls: ClassBuilder, plan: Plan) -> None:
+    remote = _wire(plan, _SIZE_STORE_TYPE)
+    function = cls.function(
+        "serializeRemoteString",
+        ret="Fw::SerializeStatus",
+        static=True,
+        comment="Write a string the way the remote reads one\n"
+        "\n"
+        f"Its length goes first, at the remote's {remote} rather than this build's\n"
+        "FwSizeStoreType, which is the one width Fw::StringBase would get wrong.",
+    )
+    function.param("Fw::ComBuffer&", "packet", comment="The packet to write into")
+    function.param("const Fw::StringBase&", "value", comment="The string to write")
+    with function.body as b:
+        b.line(
+            "const FwSizeType length = std::min(static_cast<FwSizeType>(value.length()), "
+            f"static_cast<FwSizeType>(std::numeric_limits<{remote}>::max()));"
+        )
+        b.line(
+            "Fw::SerializeStatus status = "
+            f"packet.serializeFrom(static_cast<{remote}>(length));"
+        )
+        with b.if_(f"status == {_OK}"):
+            b.line(
+                "status = packet.serializeFrom(reinterpret_cast<const U8*>("
+                "value.toChar()), length, Fw::Serialization::OMIT_LENGTH);"
+            )
+        b.line("return status;")
+
+
+def _deserialize_remote_string(cls: ClassBuilder, plan: Plan) -> None:
+    remote = _wire(plan, _SIZE_STORE_TYPE)
+    function = cls.function(
+        "deserializeRemoteString",
+        ret="Fw::SerializeStatus",
+        static=True,
+        comment="Read a string the way the remote wrote one\n"
+        "\n"
+        f"Its length comes first, at the remote's {remote} rather than this build's\n"
+        "FwSizeStoreType.  Otherwise this is Fw::StringBase::deserializeFrom: a string\n"
+        "longer than the value can hold is an error, and leaves the value empty.",
+    )
+    function.param("Fw::ComBuffer&", "packet", comment="The packet to read from")
+    function.param("Fw::StringBase&", "value", comment="The string to read into")
+    with function.body as b:
+        b.line(f"{remote} length = 0;")
+        b.line("Fw::SerializeStatus status = packet.deserializeTo(length);")
+        with b.if_(f"status != {_OK}"):
+            b.line("return status;")
+        b.line("FwSizeType actualSize = static_cast<FwSizeType>(length);")
+        with b.if_("actualSize > value.maxLength()"):
+            b.line("return Fw::FW_DESERIALIZE_SIZE_MISMATCH;")
+        b.comment(
+            "Fw::StringBase hands out only a const view of its storage, and\n"
+            "deserializeFrom writes through it the same way."
+        )
+        b.line("CHAR* raw = const_cast<CHAR*>(value.toChar());")
+        b.line(
+            "status = packet.deserializeTo(reinterpret_cast<U8*>(raw), actualSize, "
+            "Fw::Serialization::OMIT_LENGTH);"
+        )
+        b.line(f"raw[(status == {_OK}) ? actualSize : 0] = 0;")
+        b.line("return status;")
 
 
 def _begin_command_packet(cls: ClassBuilder, plan: Plan) -> None:

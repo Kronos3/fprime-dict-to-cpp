@@ -16,6 +16,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from fprime_cpp_codegen import CppCodegenError
+
 from . import config_file, dictionary, interactive
 from .cpp import cpp_file_names
 from .fpp import fpp_file_names
@@ -123,6 +125,15 @@ def _declare(parser: argparse.ArgumentParser, group: Any, spec: Spec) -> None:
             metavar=spec.metavar,
             help=help_text,
         )
+        if spec.default is not False:
+            # On by default, so it needs a way off that does not mean spelling "false"
+            # as though it were a style.
+            group.add_argument(
+                f"--no-{spec.key}",
+                dest=spec.dest,
+                action="store_false",
+                help=f"do not {spec.note.split(':')[0]}",
+            )
     else:
         group.add_argument(
             *flags,
@@ -214,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     except (DictionaryError, NamingError) as error:
         print(f"error: {_attributed(error, options)}", file=sys.stderr)
         return 2
+    except CppCodegenError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
 
     for warning in result.warnings:
         print(f"warning: {warning}", file=sys.stderr)
@@ -292,7 +306,7 @@ def _report(result: Generated, scaffold: interactive.Scaffold | None = None) -> 
     )
     print(
         f"  {len(plan.spelling.all_type_defs())} type definitions "
-        f"({len(plan.spelling.wire_type_defs())} packet-header widths, and "
+        f"({len(plan.spelling.wire_type_defs())} wire-format widths, and "
         f"{len(plan.spelling.type_defs())} of the "
         f"{len(plan.dictionary.type_defs)} in the dictionary; the rest are unreachable "
         f"from any mirrored member)"
@@ -322,6 +336,8 @@ def _state(path: Path, result: Generated) -> str:
     """What happened to one file: written, already right, or left as it was found."""
     if path in result.kept:
         return "kept"
+    if path in result.removed:
+        return "removed"
     return "unchanged" if path in result.unchanged else "wrote"
 
 

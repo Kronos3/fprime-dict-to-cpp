@@ -36,10 +36,11 @@ def render_types(plan: Plan) -> str:
 
     writer.banner("Remote wire format")
     writer.comment(
-        "The widths the remote deployment serialized its packet headers with.\n"
-        "Declared whether or not a mirrored member uses one, because the decoders read\n"
-        "every header field at these widths -- deliberately not at the local\n"
-        "FwOpcodeType and friends, since a proxy has to agree with the sender."
+        "The widths the remote deployment serialized its packet headers and string\n"
+        "lengths with.  Declared whether or not a mirrored member uses one, because the\n"
+        "decoders read every header field and string length at these widths --\n"
+        "deliberately not at the local FwOpcodeType and friends, since a proxy has to\n"
+        "agree with the sender."
     )
     for alias in plan.spelling.wire_type_defs():
         writer.blank()

@@ -43,6 +43,7 @@ from typing import Any, Generic, Protocol, TypeVar
 from .model import (
     Channel,
     Command,
+    ComInput,
     ComponentKind,
     Dictionary,
     Event,
@@ -91,6 +92,7 @@ __all__ = [
 #: confusing, and reserving them costs nothing.
 RESERVED_PORT_NAMES = (
     "comIn",
+    "comReturnOut",
     "comOut",
     "run",
     "cmdIn",
@@ -286,8 +288,23 @@ class Config:
     one visible to flight software.
     """
 
+    com_in: ComInput = ComInput.COM
+    """The port type of ``comIn``; see :class:`~.model.ComInput`.
+
+    With ``buffer`` the component also declares ``comReturnOut``, on which each buffer
+    goes back to its sender as soon as its packet has been copied out.
+    """
+
     packetized: bool = True
     """Whether to decode ``FW_PACKET_PACKETIZED_TLM`` packets as well as channelized."""
+
+    channelized: bool = True
+    """Whether to decode ``FW_PACKET_TELEM`` packets as well as packetized.
+
+    With it off, a telemetry packet is the only thing that carries a channel, so a channel
+    no decoded packet carries is dropped -- declared, nothing would ever write it -- and a
+    port hooked onto one is refused, as a packet port is with :attr:`packetized` off.
+    """
 
     diagnostics: bool = True
     """Whether to declare the proxy's own health telemetry and events.
@@ -402,6 +419,12 @@ class PortParam:
     A port hands over a ``const Fw::StringBase&`` of whatever capacity the caller had, but
     the remote is expecting ``string size N``.  Copying through an exactly-sized string
     clamps it the way the remote's own command declaration would have.
+    """
+
+    string: bool = False
+    """Whether it is a string, sized or through an alias, and so has a length prefix.
+
+    The proxy writes that prefix itself, at the remote's ``FwSizeStoreType``.
     """
 
 
@@ -629,7 +652,7 @@ class Plan:
     @property
     def decodes_channels(self) -> bool:
         """Whether the component decodes channelized telemetry at all."""
-        return bool(self.decoded_channels)
+        return self.config.channelized and bool(self.decoded_channels)
 
     @property
     def ports(self) -> tuple[PortPlan, ...]:
@@ -1189,6 +1212,9 @@ def _select(
     end to end with no lengths, so reaching the *next* channel in a buffer means knowing the
     type of the one nobody asked for.  So as long as any channel is reported at all, every
     channel stays present, and an omitted one is read and discarded.
+
+    Unless channelized telemetry is turned off, in which case a channel arrives only in a
+    packet's fixed slot, and one no kept packet carries has nowhere to come from.
     """
     omitted = _omitted(dictionary, config)
     commands = _kind_selection(
@@ -1204,14 +1230,21 @@ def _select(
     channel_names = [channel.name for channel in dictionary.channels]
     reported = _kind_selection(channel_names, omitted.channels, ports.channels.keys())
     packets = _kept_packets(dictionary, config, ports, reported.present)
-    channels = _KindSelection(
-        present=(
-            frozenset(channel_names)
-            if reported.present
-            else frozenset(_packet_members(dictionary, packets)) & set(channel_names)
-        ),
-        declared=reported.declared,
-    )
+    carried = frozenset(_packet_members(dictionary, packets)) & set(channel_names)
+    if config.packetized and not packets and any(_packets(dictionary)):
+        warnings.append(
+            "no telemetry packet is decoded: every channel the packets carry is omitted "
+            "and none of them has a port; hook one with packet-ports, or stop omitting "
+            "its channels"
+        )
+    if config.channelized:
+        channels = _KindSelection(
+            present=frozenset(channel_names) if reported.present else carried,
+            declared=reported.declared,
+        )
+    else:
+        _check_uncarried(reported, ports, carried, warnings)
+        channels = _KindSelection(present=carried, declared=reported.declared & carried)
 
     _report_omissions(dictionary, config, ports, omitted, warnings)
     return _Selection(
@@ -1229,6 +1262,35 @@ def _select(
             ),
         ),
     )
+
+
+def _check_uncarried(
+    reported: _KindSelection,
+    ports: _Ports,
+    carried: Collection[QualifiedName],
+    warnings: list[str],
+) -> None:
+    """With channelized telemetry off, refuse a port no packet feeds and note dropped channels.
+
+    A port is refused for the reason :func:`_check_port_hooks` refuses a packet port with
+    packetized telemetry off.  A declaration is dropped with a warning instead, because
+    ``omit-telemetry`` defaults to nothing, and refusing would make every channel outside a
+    packet a hand-written omission.
+    """
+    unfed = sorted(str(name) for name in ports.channels if name not in carried)
+    if unfed:
+        raise NamingError(
+            "telemetry ports were asked for but channelized telemetry is turned off, and "
+            "no decoded packet carries the channels they hook: " + ", ".join(unfed)
+        )
+    dropped = sorted(str(name) for name in reported.declared if name not in carried)
+    if dropped:
+        warnings.append(
+            f"{len(dropped)} channel(s) are carried by no decoded telemetry packet, and "
+            "channelized telemetry is turned off, so nothing would ever write them; they "
+            f"are not declared: {', '.join(dropped[:5])}"
+            + (", ..." if len(dropped) > 5 else "")
+        )
 
 
 def _kind_selection(
@@ -1669,6 +1731,7 @@ def _typed_param(plan: Plan, name: str, ref: TypeRef, annotation: str) -> PortPa
         cpp=plan.spelling.cpp_param(ref, Context.PORT),
         annotation=annotation,
         string_size=ref.size if ref.kind is TypeKind.STRING else None,
+        string=plan.spelling.is_string(ref),
     )
 
 

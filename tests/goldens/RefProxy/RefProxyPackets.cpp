@@ -2259,26 +2259,26 @@ namespace RefProxy {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_FrameworkVersion(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     // CdhCore.version.ProjectVersion
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_ProjectVersion(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x16, _status);
   }
@@ -2297,26 +2297,26 @@ namespace RefProxy {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion01(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     // CdhCore.version.LibraryVersion02
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion02(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x17, _status);
   }
@@ -2335,26 +2335,26 @@ namespace RefProxy {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion03(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     // CdhCore.version.LibraryVersion04
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion04(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x18, _status);
   }
@@ -2373,26 +2373,26 @@ namespace RefProxy {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion05(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     // CdhCore.version.LibraryVersion06
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion06(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x19, _status);
   }
@@ -2411,26 +2411,26 @@ namespace RefProxy {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion07(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     // CdhCore.version.LibraryVersion08
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion08(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x1A, _status);
   }
@@ -2449,26 +2449,26 @@ namespace RefProxy {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion09(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     // CdhCore.version.LibraryVersion10
     if (_status == Fw::FW_SERIALIZE_OK) {
       _status = _packet.moveDeserToOffset(_offset);
       if (_status == Fw::FW_SERIALIZE_OK) {
         Fw::StringTemplate<40> _value;
-        _status = _packet.deserializeTo(_value);
+        _status = deserializeRemoteString(_packet, _value);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->tlmWrite_version_LibraryVersion10(_value, _timeTag);
         }
       }
     }
-    _offset += Fw::StringBase::STATIC_SERIALIZED_SIZE(40);
+    _offset += (sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40);
 
     this->recordDecodeResult(DESCRIPTOR_PACKETIZED_TLM, 0x1B, _status);
   }

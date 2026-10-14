@@ -12,10 +12,11 @@
 # Remote wire format
 # ----------------------------------------------------------------------
 
-# The widths the remote deployment serialized its packet headers with.
-# Declared whether or not a mirrored member uses one, because the decoders read
-# every header field at these widths -- deliberately not at the local
-# FwOpcodeType and friends, since a proxy has to agree with the sender.
+# The widths the remote deployment serialized its packet headers and string
+# lengths with.  Declared whether or not a mirrored member uses one, because the
+# decoders read every header field and string length at these widths --
+# deliberately not at the local FwOpcodeType and friends, since a proxy has to
+# agree with the sender.
 
 @ The width of packet descriptors when they are serialized by the framework
 @ [FwPacketDescriptorType]
@@ -39,6 +40,10 @@ type FwChanIdType = U32
 @ The type of a telemetry packet identifier
 @ [FwTlmPacketizeIdType]
 type FwTlmPacketizeIdType = U16
+
+@ The type used to serialize a size value
+@ [FwSizeStoreType]
+type Remote_FwSizeStoreType = U16
 
 # ----------------------------------------------------------------------
 # Mirrored types

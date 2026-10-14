@@ -6,17 +6,13 @@
 
 #include "RefPorts/RefPorts.hpp"
 
-// Fw::Time and Fw::StringBase deserialize themselves using this build's
+// Fw::Time and autocoded types deserialize themselves using this build's
 // configuration, which the generated code cannot override.  The remote's own
 // widths are recorded in Ref.Ref's dictionary,
 // so a disagreement is a build error rather than silent corruption.
 static_assert(
     Fw::Time::SERIALIZED_SIZE == 11,
     "the remote serializes Fw::Time in 11 bytes; this build disagrees, so every packet timestamp would be misread"
-);
-static_assert(
-    sizeof(FwSizeStoreType) == 2,
-    "the remote prefixes strings with a 2-byte length; this build disagrees, so every string would be misread"
 );
 
 namespace RefPorts {

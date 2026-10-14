@@ -14,6 +14,7 @@
 #include "RefPorts/RefPorts_FwEventIdTypeAliasAc.hpp"
 #include "RefPorts/RefPorts_FwChanIdTypeAliasAc.hpp"
 #include "RefPorts/RefPorts_FwTlmPacketizeIdTypeAliasAc.hpp"
+#include "RefPorts/RefPorts_Remote_FwSizeStoreTypeAliasAc.hpp"
 
 namespace RefPorts {
 

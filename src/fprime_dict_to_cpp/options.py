@@ -34,7 +34,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .model import ComponentKind, QualifiedName
+from .model import ComInput, ComponentKind, QualifiedName
 from .naming import PRESETS, Naming, Qualification, Style
 from .plan import Config
 
@@ -646,9 +646,24 @@ class Options:
             group="output",
             note="path prefix for the #include of the autocoded base class, normally the "
             "component's directory relative to the project root; an include path rather "
-            "than a file path, and the output directory's name by default",
+            "than a file path.  By default the output directory relative to the nearest "
+            "enclosing F Prime project or library (the first directory up holding a "
+            "settings.ini, project.cmake or library.cmake), or the directory's own name "
+            "outside of one",
         ),
         default=None,
+    )
+
+    com_in: ComInput = option(
+        Spec(
+            "com-in",
+            group="output",
+            note="the port type comIn receives the remote's packets on.  com: Fw.Com, "
+            "as FprimeRouter's commandOut emits.  buffer: Fw.BufferSend, as "
+            "PassThroughRouter's allPacketsOut emits, with a comReturnOut port handing "
+            "each buffer back",
+        ),
+        default=ComInput.COM,
     )
 
     packetized: bool = option(
@@ -659,6 +674,19 @@ class Options:
             note="decode FW_PACKET_PACKETIZED_TLM as well as channelized telemetry",
             negated_note="do not decode packetized telemetry "
             "(FW_PACKET_PACKETIZED_TLM)",
+        ),
+        default=True,
+    )
+
+    channelized: bool = option(
+        Spec(
+            "channelized",
+            group="output",
+            negated=True,
+            note="decode FW_PACKET_TELEM as well as packetized telemetry; off, a channel "
+            "no decoded packet carries is not declared",
+            negated_note="do not decode channelized telemetry (FW_PACKET_TELEM), only "
+            "telemetry packets",
         ),
         default=True,
     )
@@ -690,10 +718,11 @@ class Options:
             "clang-format",
             group="output",
             metavar="STYLE",
-            note="run the generated C++ through clang-format; true for its own default "
-            "style, or name one",
+            note="run the generated C++ through clang-format: true for the nearest "
+            ".clang-format above the output directory, or name a style.  On, and an "
+            "error if clang-format is not on PATH",
         ),
-        default=False,
+        default=True,
     )
 
     cross_check: bool = option(
@@ -742,8 +771,18 @@ class Options:
         return self.output or Path(component)
 
     def include_prefix_for(self, output: Path) -> str:
-        """The prefix its ``#include`` uses: the one asked for, or the directory's name."""
-        return self.include_prefix if self.include_prefix is not None else output.name
+        """The prefix its ``#include`` uses: the one asked for, or one found on disk.
+
+        F Prime puts each project and library root on the include path, so a component
+        is included by its directory relative to whichever root encloses it.  Outside of
+        any, the directory's own name is the best guess there is.
+        """
+        if self.include_prefix is not None:
+            return self.include_prefix
+        root = enclosing_fprime_root(output)
+        if root is None:
+            return output.name
+        return output.resolve().relative_to(root).as_posix()
 
     def settle(self, deployment: str) -> tuple[Path, Config]:
         """The output directory, and the configuration the emitters read.
@@ -773,7 +812,21 @@ class Options:
             event_ports=self.event_ports,
             telemetry_ports=self.telemetry_ports,
             packet_ports=self.packet_ports,
+            com_in=self.com_in,
             packetized=self.packetized,
+            channelized=self.channelized,
             diagnostics=self.diagnostics,
             include_prefix=self.include_prefix_for(output),
         )
+
+
+#: The files whose presence marks a directory as one F Prime puts on the include path.
+FPRIME_ROOT_MARKERS = ("settings.ini", "project.cmake", "library.cmake")
+
+
+def enclosing_fprime_root(output: Path) -> Path | None:
+    """The nearest strict ancestor of ``output`` that is an F Prime project or library."""
+    for directory in output.resolve().parents:
+        if any((directory / marker).is_file() for marker in FPRIME_ROOT_MARKERS):
+            return directory
+    return None

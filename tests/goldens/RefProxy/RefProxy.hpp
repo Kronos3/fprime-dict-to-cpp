@@ -14,6 +14,7 @@
 #include "RefProxy/RefProxy_FwEventIdTypeAliasAc.hpp"
 #include "RefProxy/RefProxy_FwChanIdTypeAliasAc.hpp"
 #include "RefProxy/RefProxy_FwTlmPacketizeIdTypeAliasAc.hpp"
+#include "RefProxy/RefProxy_Remote_FwSizeStoreTypeAliasAc.hpp"
 
 namespace RefProxy {
 
@@ -1797,6 +1798,25 @@ namespace RefProxy {
       void recordPacketIgnored(
           U32 descriptor, //!< The packet descriptor
           U32 identifier //!< The id, or zero if none was read
+      );
+
+      //! Write a string the way the remote reads one
+      //!
+      //! Its length goes first, at the remote's ::RefProxy::RefProxy_Remote_FwSizeStoreType rather than this build's
+      //! FwSizeStoreType, which is the one width Fw::StringBase would get wrong.
+      static Fw::SerializeStatus serializeRemoteString(
+          Fw::ComBuffer& packet, //!< The packet to write into
+          const Fw::StringBase& value //!< The string to write
+      );
+
+      //! Read a string the way the remote wrote one
+      //!
+      //! Its length comes first, at the remote's ::RefProxy::RefProxy_Remote_FwSizeStoreType rather than this build's
+      //! FwSizeStoreType.  Otherwise this is Fw::StringBase::deserializeFrom: a string
+      //! longer than the value can hold is an error, and leaves the value empty.
+      static Fw::SerializeStatus deserializeRemoteString(
+          Fw::ComBuffer& packet, //!< The packet to read from
+          Fw::StringBase& value //!< The string to read into
       );
 
     private:

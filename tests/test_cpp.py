@@ -83,6 +83,7 @@ class TestRemoteWireFormat:
             "FwEventIdType",
             "FwChanIdType",
             "FwTlmPacketizeIdType",
+            "Remote_FwSizeStoreType",
         ):
             assert f'#include "RefProxy/RefProxy_{alias}AliasAc.hpp"' in header
         assert (
@@ -111,12 +112,35 @@ class TestRemoteWireFormat:
         )
 
     def test_asserts_the_widths_it_cannot_control(self, files: dict[str, str]) -> None:
-        # Fw::Time and Fw::StringBase deserialize themselves with the local
+        # Fw::Time and an autocoded struct deserialize themselves with the local
         # configuration; a mismatch has to be a build error, not silent corruption.
+        # Ref's Svc.CustomVersionDb holds a string, which is what keeps the second.
         source = files["RefProxy.cpp"]
         assert "static_assert(" in source
         assert "Fw::Time::SERIALIZED_SIZE == 11," in source
         assert "sizeof(FwSizeStoreType) == 2," in source
+
+    def test_strings_are_read_and_written_at_the_remotes_width(
+        self, files: dict[str, str]
+    ) -> None:
+        remote = "::RefProxy::RefProxy_Remote_FwSizeStoreType"
+        source = files["RefProxy.cpp"]
+        assert f"{remote} length = 0;" in source
+        assert f"packet.serializeFrom(static_cast<{remote}>(length));" in source
+        assert "deserializeRemoteString(_packet, " in files["RefProxyEvents.cpp"]
+        assert "serializeRemoteString(_packet, " in files["RefProxyCommands.cpp"]
+        assert "_packet.deserializeTo(message)" not in files["RefProxyEvents.cpp"]
+
+    def test_a_proxy_with_no_nested_string_does_not_assert_the_width(
+        self, ref: Dictionary
+    ) -> None:
+        # Every top-level string goes through the proxy's own helpers, so a build whose
+        # FwSizeStoreType differs from the remote's has nothing left to misread.
+        plan = plan_for(ref, omit=["*"])
+        assert not plan.spelling.nested_strings()
+        source = render_implementation(plan).files()["RefProxy.cpp"]
+        assert "sizeof(FwSizeStoreType)" not in source
+        assert "Fw::Time::SERIALIZED_SIZE == 11," in source
 
 
 class TestShadowing:

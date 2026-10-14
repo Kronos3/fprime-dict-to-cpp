@@ -118,22 +118,34 @@ type-names:
 type-prefix: ""
 
 # Path prefix for the #include of the autocoded base class; normally the component's
-# directory relative to the project root.  Defaults to the output directory's name, and
-# unlike the paths above it is an include path, not a filesystem path.
+# directory relative to the project root.  Defaults to the output directory's path
+# below the nearest settings.ini, project.cmake or library.cmake, and unlike the paths
+# above it is an include path, not a filesystem path.
 # include-prefix: Ref/RefProxy
 
+# The port type comIn receives the remote's packets on.  com: Fw.Com, as
+# FprimeRouter's commandOut emits.  buffer: Fw.BufferSend, as PassThroughRouter's
+# allPacketsOut emits; each buffer is copied out and handed straight back on a
+# comReturnOut port, which connects to the router's allPacketsReturnIn.
+com-in: com
+
 # These read positively, where the flags that set them read negatively
-# (--no-packetized, --no-diagnostics).
+# (--no-packetized, --no-channelized, --no-diagnostics).  With channelized off, only
+# telemetry packets are decoded, and a channel no decoded packet carries is not
+# declared, since nothing would ever write it.
 packetized: true
+channelized: true
 diagnostics: true
 
-# true for clang-format's own default style, or name one: clang-format: Google
-clang-format: false
+# Run the generated C++ through clang-format.  On, and an error if clang-format is
+# not on PATH.  true takes the nearest .clang-format above the output directory, or
+# name a style: clang-format: Google
+clang-format: true
 
 # Rewrite CMakeLists.txt from the current file list.  Off, so that whatever this
 # project has added to it -- a dependency the FPP model does not imply, a target
 # property -- survives a regeneration.  Turn it on when the file list itself changes,
-# which is what turning packetized off does.
+# which is what turning packetized or channelized off does.
 cmake: false
 
 # Also parse the dictionary with fprime-gds and report any disagreement.

@@ -299,6 +299,24 @@ class ComponentKind(Enum):
         return "async" if self.has_queue else "guarded"
 
 
+class ComInput(Enum):
+    """The port type packets from the remote arrive on.
+
+    ``com`` is ``Fw.Com``: a ``Fw::ComBuffer`` passed by value, as ``Svc.FprimeRouter``'s
+    ``commandOut`` emits.  ``buffer`` is ``Fw.BufferSend``: a ``Fw::Buffer`` whose ownership
+    is passed in and has to be handed back, as ``Svc.PassThroughRouter``'s
+    ``allPacketsOut`` emits.
+    """
+
+    COM = "com"
+    BUFFER = "buffer"
+
+    @property
+    def port_type(self) -> str:
+        """The FPP port type of ``comIn``."""
+        return "Fw.Com" if self is ComInput.COM else "Fw.BufferSend"
+
+
 class QueueFullBehavior(Enum):
     """What an async command does when the receiving queue is full."""
 
@@ -470,7 +488,8 @@ class Metadata:
 class PlatformTypes:
     """The remote platform's type widths, as recorded in the dictionary.
 
-    A proxy parses packet headers with *these* widths, not the local platform's.  A
+    A proxy parses packet headers and string lengths with *these* widths, not the local
+    platform's.  A
     dictionary that omits one gets the F Prime default, which is what the remote
     would have used had it not been reconfigured.
     """
@@ -480,6 +499,8 @@ class PlatformTypes:
     event_id: TypeRef
     channel_id: TypeRef
     packetize_id: TypeRef
+    size_store: TypeRef
+    """The width of a string's length prefix, which the proxy writes and reads itself."""
 
     #: The names looked up in ``typeDefinitions``, and the built-in each falls back to.
     DEFAULTS = {
@@ -488,6 +509,7 @@ class PlatformTypes:
         "event_id": ("FwEventIdType", "U32"),
         "channel_id": ("FwChanIdType", "U32"),
         "packetize_id": ("FwTlmPacketizeIdType", "U16"),
+        "size_store": ("FwSizeStoreType", "U16"),
     }
 
 

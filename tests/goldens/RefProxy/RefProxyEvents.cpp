@@ -189,7 +189,7 @@ namespace RefProxy {
       case 0x1000008: {
         // CdhCore.cmdDisp.NoOpStringReceived
         Fw::StringTemplate<40> message;
-        _status = _packet.deserializeTo(message);
+        _status = deserializeRemoteString(_packet, message);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdDisp_NoOpStringReceived(message);
         }
@@ -290,7 +290,7 @@ namespace RefProxy {
       case 0x1002000: {
         // CdhCore.health.HLTH_PING_WARN
         Fw::StringTemplate<40> entry;
-        _status = _packet.deserializeTo(entry);
+        _status = deserializeRemoteString(_packet, entry);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_health_HLTH_PING_WARN(entry);
         }
@@ -299,7 +299,7 @@ namespace RefProxy {
       case 0x1002001: {
         // CdhCore.health.HLTH_PING_LATE
         Fw::StringTemplate<40> entry;
-        _status = _packet.deserializeTo(entry);
+        _status = deserializeRemoteString(_packet, entry);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_FATAL_health_HLTH_PING_LATE(entry);
         }
@@ -308,7 +308,7 @@ namespace RefProxy {
       case 0x1002002: {
         // CdhCore.health.HLTH_PING_WRONG_KEY
         Fw::StringTemplate<40> entry;
-        _status = _packet.deserializeTo(entry);
+        _status = deserializeRemoteString(_packet, entry);
         U32 badKey = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(badKey);
@@ -333,7 +333,7 @@ namespace RefProxy {
         _status = _packet.deserializeTo(enabled);
         Fw::StringTemplate<40> entry;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(entry);
+          _status = deserializeRemoteString(_packet, entry);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_health_HLTH_CHECK_PING(enabled, entry);
@@ -343,7 +343,7 @@ namespace RefProxy {
       case 0x1002005: {
         // CdhCore.health.HLTH_CHECK_LOOKUP_ERROR
         Fw::StringTemplate<40> entry;
-        _status = _packet.deserializeTo(entry);
+        _status = deserializeRemoteString(_packet, entry);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_health_HLTH_CHECK_LOOKUP_ERROR(entry);
         }
@@ -352,7 +352,7 @@ namespace RefProxy {
       case 0x1002006: {
         // CdhCore.health.HLTH_PING_UPDATED
         Fw::StringTemplate<40> entry;
-        _status = _packet.deserializeTo(entry);
+        _status = deserializeRemoteString(_packet, entry);
         U32 warn = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(warn);
@@ -369,7 +369,7 @@ namespace RefProxy {
       case 0x1002007: {
         // CdhCore.health.HLTH_PING_INVALID_VALUES
         Fw::StringTemplate<40> entry;
-        _status = _packet.deserializeTo(entry);
+        _status = deserializeRemoteString(_packet, entry);
         U32 warn = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(warn);
@@ -386,7 +386,7 @@ namespace RefProxy {
       case 0x1003000: {
         // CdhCore.version.FrameworkVersion
         Fw::StringTemplate<40> version;
-        _status = _packet.deserializeTo(version);
+        _status = deserializeRemoteString(_packet, version);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_version_FrameworkVersion(version);
         }
@@ -395,7 +395,7 @@ namespace RefProxy {
       case 0x1003001: {
         // CdhCore.version.ProjectVersion
         Fw::StringTemplate<40> version;
-        _status = _packet.deserializeTo(version);
+        _status = deserializeRemoteString(_packet, version);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_version_ProjectVersion(version);
         }
@@ -404,7 +404,7 @@ namespace RefProxy {
       case 0x1003002: {
         // CdhCore.version.LibraryVersions
         Fw::StringTemplate<40> version;
-        _status = _packet.deserializeTo(version);
+        _status = deserializeRemoteString(_packet, version);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_version_LibraryVersions(version);
         }
@@ -416,7 +416,7 @@ namespace RefProxy {
         _status = _packet.deserializeTo(version_enum);
         Fw::StringTemplate<40> version_value;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(version_value);
+          _status = deserializeRemoteString(_packet, version_value);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_version_CustomVersions(version_enum, version_value);
@@ -426,7 +426,7 @@ namespace RefProxy {
       case 0x1005000: {
         // CdhCore.fatalAdapter.AF_ASSERT_0
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -439,7 +439,7 @@ namespace RefProxy {
       case 0x1005001: {
         // CdhCore.fatalAdapter.AF_ASSERT_1
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -456,7 +456,7 @@ namespace RefProxy {
       case 0x1005002: {
         // CdhCore.fatalAdapter.AF_ASSERT_2
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -477,7 +477,7 @@ namespace RefProxy {
       case 0x1005003: {
         // CdhCore.fatalAdapter.AF_ASSERT_3
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -502,7 +502,7 @@ namespace RefProxy {
       case 0x1005004: {
         // CdhCore.fatalAdapter.AF_ASSERT_4
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -531,7 +531,7 @@ namespace RefProxy {
       case 0x1005005: {
         // CdhCore.fatalAdapter.AF_ASSERT_5
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -564,7 +564,7 @@ namespace RefProxy {
       case 0x1005006: {
         // CdhCore.fatalAdapter.AF_ASSERT_6
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -601,7 +601,7 @@ namespace RefProxy {
       case 0x1005007: {
         // CdhCore.fatalAdapter.AF_UNEXPECTED_ASSERT
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 line = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(line);
@@ -800,7 +800,7 @@ namespace RefProxy {
       case 0x4000000: {
         // DataProducts.dpCat.DirectoryOpenError
         Fw::StringTemplate<240> loc;
-        _status = _packet.deserializeTo(loc);
+        _status = deserializeRemoteString(_packet, loc);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -813,7 +813,7 @@ namespace RefProxy {
       case 0x4000001: {
         // DataProducts.dpCat.ProcessingDirectory
         Fw::StringTemplate<240> directory;
-        _status = _packet.deserializeTo(directory);
+        _status = deserializeRemoteString(_packet, directory);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_dpCat_ProcessingDirectory(directory);
         }
@@ -822,7 +822,7 @@ namespace RefProxy {
       case 0x4000002: {
         // DataProducts.dpCat.ProcessingFile
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_dpCat_ProcessingFile(file);
         }
@@ -831,7 +831,7 @@ namespace RefProxy {
       case 0x4000003: {
         // DataProducts.dpCat.ProcessingDirectoryComplete
         Fw::StringTemplate<240> loc;
-        _status = _packet.deserializeTo(loc);
+        _status = deserializeRemoteString(_packet, loc);
         U32 total = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(total);
@@ -857,7 +857,7 @@ namespace RefProxy {
       case 0x4000005: {
         // DataProducts.dpCat.DirectoryNotManaged
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpCat_DirectoryNotManaged(file);
         }
@@ -889,7 +889,7 @@ namespace RefProxy {
       case 0x400000D: {
         // DataProducts.dpCat.SendingProduct
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 bytes = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(bytes);
@@ -906,7 +906,7 @@ namespace RefProxy {
       case 0x400000E: {
         // DataProducts.dpCat.ProductComplete
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         U32 pending = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(pending);
@@ -933,7 +933,7 @@ namespace RefProxy {
       case 0x4000016: {
         // DataProducts.dpCat.CatalogFull
         Fw::StringTemplate<240> dir;
-        _status = _packet.deserializeTo(dir);
+        _status = deserializeRemoteString(_packet, dir);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpCat_CatalogFull(dir);
         }
@@ -942,7 +942,7 @@ namespace RefProxy {
       case 0x4000017: {
         // DataProducts.dpCat.FileOpenError
         Fw::StringTemplate<240> loc;
-        _status = _packet.deserializeTo(loc);
+        _status = deserializeRemoteString(_packet, loc);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -955,7 +955,7 @@ namespace RefProxy {
       case 0x4000018: {
         // DataProducts.dpCat.FileReadError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -968,7 +968,7 @@ namespace RefProxy {
       case 0x4000019: {
         // DataProducts.dpCat.FileHdrError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         ::RefProxy::RefProxy_Svc_DpHdrField field;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(field);
@@ -989,7 +989,7 @@ namespace RefProxy {
       case 0x400001A: {
         // DataProducts.dpCat.FileHdrDesError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1034,7 +1034,7 @@ namespace RefProxy {
       case 0x400001F: {
         // DataProducts.dpCat.FileSizeError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1057,7 +1057,7 @@ namespace RefProxy {
       case 0x4000023: {
         // DataProducts.dpCat.StateFileOpenError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1070,7 +1070,7 @@ namespace RefProxy {
       case 0x4000024: {
         // DataProducts.dpCat.StateFileReadError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1087,7 +1087,7 @@ namespace RefProxy {
       case 0x4000025: {
         // DataProducts.dpCat.StateFileTruncated
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 offset = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(offset);
@@ -1109,7 +1109,7 @@ namespace RefProxy {
       case 0x4000027: {
         // DataProducts.dpCat.StateFileWriteError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1122,7 +1122,7 @@ namespace RefProxy {
       case 0x4000028: {
         // DataProducts.dpCat.NoStateFile
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_dpCat_NoStateFile(file);
         }
@@ -1131,7 +1131,7 @@ namespace RefProxy {
       case 0x4000029: {
         // DataProducts.dpCat.DpFileXmitError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         ::RefProxy::RefProxy_Svc_SendFileStatus stat;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1144,7 +1144,7 @@ namespace RefProxy {
       case 0x400002A: {
         // DataProducts.dpCat.DpFileSendError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         ::RefProxy::RefProxy_Svc_SendFileStatus stat;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1157,7 +1157,7 @@ namespace RefProxy {
       case 0x400002B: {
         // DataProducts.dpCat.DpFileAdded
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_dpCat_DpFileAdded(file);
         }
@@ -1166,7 +1166,7 @@ namespace RefProxy {
       case 0x400002C: {
         // DataProducts.dpCat.NotLoaded
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_dpCat_NotLoaded(file);
         }
@@ -1175,7 +1175,7 @@ namespace RefProxy {
       case 0x400002D: {
         // DataProducts.dpCat.DpFileSkipped
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_dpCat_DpFileSkipped(file);
         }
@@ -1189,10 +1189,10 @@ namespace RefProxy {
       case 0x400002F: {
         // DataProducts.dpCat.InvalidFileName
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         Fw::StringTemplate<240> expected;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(expected);
+          _status = deserializeRemoteString(_packet, expected);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpCat_InvalidFileName(file, expected);
@@ -1202,7 +1202,7 @@ namespace RefProxy {
       case 0x4000030: {
         // DataProducts.dpCat.FileCorruptedDataError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         I32 stat = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stat);
@@ -1215,7 +1215,7 @@ namespace RefProxy {
       case 0x4000031: {
         // DataProducts.dpCat.FileNameFormatError
         Fw::StringTemplate<240> file;
-        _status = _packet.deserializeTo(file);
+        _status = deserializeRemoteString(_packet, file);
         ::RefProxy::RefProxy_Fw_StringFormatStatus status;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1310,7 +1310,7 @@ namespace RefProxy {
         _status = _packet.deserializeTo(status);
         Fw::StringTemplate<240> file;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(file);
+          _status = deserializeRemoteString(_packet, file);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpWriter_FileOpenError(status, file);
@@ -1331,7 +1331,7 @@ namespace RefProxy {
         }
         Fw::StringTemplate<240> file;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(file);
+          _status = deserializeRemoteString(_packet, file);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_dpWriter_FileWriteError(status, bytesWritten, bytesToWrite, file);
@@ -1344,7 +1344,7 @@ namespace RefProxy {
         _status = _packet.deserializeTo(bytes);
         Fw::StringTemplate<240> file;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(file);
+          _status = deserializeRemoteString(_packet, file);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_dpWriter_FileWritten(bytes, file);
@@ -1431,7 +1431,7 @@ namespace RefProxy {
       case 0x5000000: {
         // FileHandling.fileUplink.BadChecksum
         Fw::StringTemplate<40> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 computed = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(computed);
@@ -1448,7 +1448,7 @@ namespace RefProxy {
       case 0x5000001: {
         // FileHandling.fileUplink.FileOpenError
         Fw::StringTemplate<40> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileUplink_FileOpenError(fileName);
         }
@@ -1457,7 +1457,7 @@ namespace RefProxy {
       case 0x5000002: {
         // FileHandling.fileUplink.FileReceived
         Fw::StringTemplate<40> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileUplink_FileReceived(fileName);
         }
@@ -1466,7 +1466,7 @@ namespace RefProxy {
       case 0x5000003: {
         // FileHandling.fileUplink.FileWriteError
         Fw::StringTemplate<40> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileUplink_FileWriteError(fileName);
         }
@@ -1491,7 +1491,7 @@ namespace RefProxy {
         _status = _packet.deserializeTo(packetIndex);
         Fw::StringTemplate<40> fileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(fileName);
+          _status = deserializeRemoteString(_packet, fileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileUplink_PacketOutOfBounds(packetIndex, fileName);
@@ -1546,7 +1546,7 @@ namespace RefProxy {
       case 0x5001000: {
         // FileHandling.fileDownlink.FileOpenError
         Fw::StringTemplate<100> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileDownlink_FileOpenError(fileName);
         }
@@ -1555,7 +1555,7 @@ namespace RefProxy {
       case 0x5001001: {
         // FileHandling.fileDownlink.FileReadError
         Fw::StringTemplate<100> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         I32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1568,10 +1568,10 @@ namespace RefProxy {
       case 0x5001002: {
         // FileHandling.fileDownlink.FileSent
         Fw::StringTemplate<100> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         Fw::StringTemplate<100> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileDownlink_FileSent(sourceFileName, destFileName);
@@ -1581,10 +1581,10 @@ namespace RefProxy {
       case 0x5001003: {
         // FileHandling.fileDownlink.DownlinkCanceled
         Fw::StringTemplate<100> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         Fw::StringTemplate<100> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileDownlink_DownlinkCanceled(sourceFileName, destFileName);
@@ -1605,11 +1605,11 @@ namespace RefProxy {
         }
         Fw::StringTemplate<100> sourceFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(sourceFileName);
+          _status = deserializeRemoteString(_packet, sourceFileName);
         }
         Fw::StringTemplate<100> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_fileDownlink_DownlinkPartialWarning(startOffset, length, filesize, sourceFileName, destFileName);
@@ -1619,10 +1619,10 @@ namespace RefProxy {
       case 0x5001006: {
         // FileHandling.fileDownlink.DownlinkPartialFail
         Fw::StringTemplate<100> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         Fw::StringTemplate<100> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         U32 startOffset = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1640,7 +1640,7 @@ namespace RefProxy {
       case 0x5001007: {
         // FileHandling.fileDownlink.SendDataFail
         Fw::StringTemplate<100> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         U32 byteOffset = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(byteOffset);
@@ -1656,11 +1656,11 @@ namespace RefProxy {
         _status = _packet.deserializeTo(fileSize);
         Fw::StringTemplate<100> sourceFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(sourceFileName);
+          _status = deserializeRemoteString(_packet, sourceFileName);
         }
         Fw::StringTemplate<100> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileDownlink_SendStarted(fileSize, sourceFileName, destFileName);
@@ -1670,7 +1670,7 @@ namespace RefProxy {
       case 0x5001009: {
         // FileHandling.fileDownlink.DownlinkZeroSizeFile
         Fw::StringTemplate<100> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileDownlink_DownlinkZeroSizeFile(sourceFileName);
         }
@@ -1689,7 +1689,7 @@ namespace RefProxy {
       case 0x5001012: {
         // FileHandling.fileDownlink.SourceOutOfSandbox
         Fw::StringTemplate<100> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_fileDownlink_SourceOutOfSandbox(fileName);
         }
@@ -1698,7 +1698,7 @@ namespace RefProxy {
       case 0x5002000: {
         // FileHandling.fileManager.DirectoryCreateError
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1711,7 +1711,7 @@ namespace RefProxy {
       case 0x5002001: {
         // FileHandling.fileManager.DirectoryRemoveError
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1724,10 +1724,10 @@ namespace RefProxy {
       case 0x5002002: {
         // FileHandling.fileManager.FileMoveError
         Fw::StringTemplate<240> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         Fw::StringTemplate<240> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1741,7 +1741,7 @@ namespace RefProxy {
       case 0x5002003: {
         // FileHandling.fileManager.FileRemoveError
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1754,10 +1754,10 @@ namespace RefProxy {
       case 0x5002005: {
         // FileHandling.fileManager.AppendFileFailed
         Fw::StringTemplate<240> source;
-        _status = _packet.deserializeTo(source);
+        _status = deserializeRemoteString(_packet, source);
         Fw::StringTemplate<240> target;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(target);
+          _status = deserializeRemoteString(_packet, target);
         }
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1771,10 +1771,10 @@ namespace RefProxy {
       case 0x5002006: {
         // FileHandling.fileManager.AppendFileSucceeded
         Fw::StringTemplate<240> source;
-        _status = _packet.deserializeTo(source);
+        _status = deserializeRemoteString(_packet, source);
         Fw::StringTemplate<240> target;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(target);
+          _status = deserializeRemoteString(_packet, target);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_AppendFileSucceeded(source, target);
@@ -1784,7 +1784,7 @@ namespace RefProxy {
       case 0x5002008: {
         // FileHandling.fileManager.CreateDirectorySucceeded
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_CreateDirectorySucceeded(dirName);
         }
@@ -1793,7 +1793,7 @@ namespace RefProxy {
       case 0x5002009: {
         // FileHandling.fileManager.RemoveDirectorySucceeded
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_RemoveDirectorySucceeded(dirName);
         }
@@ -1802,10 +1802,10 @@ namespace RefProxy {
       case 0x500200A: {
         // FileHandling.fileManager.MoveFileSucceeded
         Fw::StringTemplate<240> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         Fw::StringTemplate<240> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_MoveFileSucceeded(sourceFileName, destFileName);
@@ -1815,7 +1815,7 @@ namespace RefProxy {
       case 0x500200B: {
         // FileHandling.fileManager.RemoveFileSucceeded
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_RemoveFileSucceeded(fileName);
         }
@@ -1824,10 +1824,10 @@ namespace RefProxy {
       case 0x500200C: {
         // FileHandling.fileManager.AppendFileStarted
         Fw::StringTemplate<240> source;
-        _status = _packet.deserializeTo(source);
+        _status = deserializeRemoteString(_packet, source);
         Fw::StringTemplate<240> target;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(target);
+          _status = deserializeRemoteString(_packet, target);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_AppendFileStarted(source, target);
@@ -1837,7 +1837,7 @@ namespace RefProxy {
       case 0x500200E: {
         // FileHandling.fileManager.CreateDirectoryStarted
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_CreateDirectoryStarted(dirName);
         }
@@ -1846,7 +1846,7 @@ namespace RefProxy {
       case 0x500200F: {
         // FileHandling.fileManager.RemoveDirectoryStarted
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_RemoveDirectoryStarted(dirName);
         }
@@ -1855,10 +1855,10 @@ namespace RefProxy {
       case 0x5002010: {
         // FileHandling.fileManager.MoveFileStarted
         Fw::StringTemplate<240> sourceFileName;
-        _status = _packet.deserializeTo(sourceFileName);
+        _status = deserializeRemoteString(_packet, sourceFileName);
         Fw::StringTemplate<240> destFileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(destFileName);
+          _status = deserializeRemoteString(_packet, destFileName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_MoveFileStarted(sourceFileName, destFileName);
@@ -1868,7 +1868,7 @@ namespace RefProxy {
       case 0x5002011: {
         // FileHandling.fileManager.RemoveFileStarted
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_RemoveFileStarted(fileName);
         }
@@ -1877,7 +1877,7 @@ namespace RefProxy {
       case 0x5002012: {
         // FileHandling.fileManager.FileSizeSucceeded
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         ::RefProxy::RefProxy_FwSizeType size = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(size);
@@ -1890,7 +1890,7 @@ namespace RefProxy {
       case 0x5002013: {
         // FileHandling.fileManager.FileSizeError
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1903,7 +1903,7 @@ namespace RefProxy {
       case 0x5002014: {
         // FileHandling.fileManager.FileSizeStarted
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_FileSizeStarted(fileName);
         }
@@ -1912,7 +1912,7 @@ namespace RefProxy {
       case 0x5002015: {
         // FileHandling.fileManager.ListDirectoryStarted
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_ListDirectoryStarted(dirName);
         }
@@ -1921,7 +1921,7 @@ namespace RefProxy {
       case 0x5002016: {
         // FileHandling.fileManager.ListDirectorySucceeded
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         U32 fileCount = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(fileCount);
@@ -1934,7 +1934,7 @@ namespace RefProxy {
       case 0x5002017: {
         // FileHandling.fileManager.ListDirectoryError
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1947,10 +1947,10 @@ namespace RefProxy {
       case 0x5002018: {
         // FileHandling.fileManager.DirectoryListing
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         Fw::StringTemplate<240> fileName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(fileName);
+          _status = deserializeRemoteString(_packet, fileName);
         }
         ::RefProxy::RefProxy_FwSizeType fileSize = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
@@ -1964,10 +1964,10 @@ namespace RefProxy {
       case 0x5002019: {
         // FileHandling.fileManager.DirectoryListingSubdir
         Fw::StringTemplate<240> dirName;
-        _status = _packet.deserializeTo(dirName);
+        _status = deserializeRemoteString(_packet, dirName);
         Fw::StringTemplate<240> subdirName;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(subdirName);
+          _status = deserializeRemoteString(_packet, subdirName);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_DirectoryListingSubdir(dirName, subdirName);
@@ -1977,7 +1977,7 @@ namespace RefProxy {
       case 0x500201A: {
         // FileHandling.fileManager.CalculateCrcStarted
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_fileManager_CalculateCrcStarted(fileName);
         }
@@ -1986,7 +1986,7 @@ namespace RefProxy {
       case 0x500201B: {
         // FileHandling.fileManager.CalculateCrcFailed
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -1999,7 +1999,7 @@ namespace RefProxy {
       case 0x500201C: {
         // FileHandling.fileManager.CalculateCrcSucceeded
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 crc = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(crc);
@@ -2012,7 +2012,7 @@ namespace RefProxy {
       case 0x500201D: {
         // FileHandling.fileManager.FileNameFormatError
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         ::RefProxy::RefProxy_Fw_StringFormatStatus status;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -2104,7 +2104,7 @@ namespace RefProxy {
       case 0x5003007: {
         // FileHandling.prmDb.PrmFileLoadComplete
         Fw::StringTemplate<256> databaseString;
-        _status = _packet.deserializeTo(databaseString);
+        _status = deserializeRemoteString(_packet, databaseString);
         U32 recordsTotal = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordsTotal);
@@ -2130,10 +2130,10 @@ namespace RefProxy {
       case 0x5003009: {
         // FileHandling.prmDb.PrmDbCopyAllComplete
         Fw::StringTemplate<256> databaseStringSrc;
-        _status = _packet.deserializeTo(databaseStringSrc);
+        _status = deserializeRemoteString(_packet, databaseStringSrc);
         Fw::StringTemplate<256> databaseStringDest;
         if (_status == Fw::FW_SERIALIZE_OK) {
-          _status = _packet.deserializeTo(databaseStringDest);
+          _status = deserializeRemoteString(_packet, databaseStringDest);
         }
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_prmDb_PrmDbCopyAllComplete(databaseStringSrc, databaseStringDest);
@@ -2397,7 +2397,7 @@ namespace RefProxy {
       case 0x10006000: {
         // Ref.cmdSeq.CS_SequenceLoaded
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_cmdSeq_CS_SequenceLoaded(fileName);
         }
@@ -2406,7 +2406,7 @@ namespace RefProxy {
       case 0x10006001: {
         // Ref.cmdSeq.CS_SequenceCanceled
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdSeq_CS_SequenceCanceled(fileName);
         }
@@ -2415,7 +2415,7 @@ namespace RefProxy {
       case 0x10006002: {
         // Ref.cmdSeq.CS_FileReadError
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_cmdSeq_CS_FileReadError(fileName);
         }
@@ -2424,7 +2424,7 @@ namespace RefProxy {
       case 0x10006003: {
         // Ref.cmdSeq.CS_FileInvalid
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         ::RefProxy::RefProxy_Svc_CmdSequencer_FileReadStage stage;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(stage);
@@ -2441,7 +2441,7 @@ namespace RefProxy {
       case 0x10006004: {
         // Ref.cmdSeq.CS_RecordInvalid
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 recordNumber = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
@@ -2458,7 +2458,7 @@ namespace RefProxy {
       case 0x10006005: {
         // Ref.cmdSeq.CS_FileSizeError
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 size = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(size);
@@ -2471,7 +2471,7 @@ namespace RefProxy {
       case 0x10006006: {
         // Ref.cmdSeq.CS_FileNotFound
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_cmdSeq_CS_FileNotFound(fileName);
         }
@@ -2480,7 +2480,7 @@ namespace RefProxy {
       case 0x10006007: {
         // Ref.cmdSeq.CS_FileCrcFailure
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 storedCRC = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(storedCRC);
@@ -2497,7 +2497,7 @@ namespace RefProxy {
       case 0x10006008: {
         // Ref.cmdSeq.CS_CommandComplete
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 recordNumber = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
@@ -2514,7 +2514,7 @@ namespace RefProxy {
       case 0x10006009: {
         // Ref.cmdSeq.CS_SequenceComplete
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdSeq_CS_SequenceComplete(fileName);
         }
@@ -2523,7 +2523,7 @@ namespace RefProxy {
       case 0x1000600A: {
         // Ref.cmdSeq.CS_CommandError
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 recordNumber = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
@@ -2549,7 +2549,7 @@ namespace RefProxy {
       case 0x1000600C: {
         // Ref.cmdSeq.CS_RecordMismatch
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U32 header_records = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(header_records);
@@ -2566,7 +2566,7 @@ namespace RefProxy {
       case 0x1000600D: {
         // Ref.cmdSeq.CS_TimeBaseMismatch
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U16 time_base = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(time_base);
@@ -2583,7 +2583,7 @@ namespace RefProxy {
       case 0x1000600E: {
         // Ref.cmdSeq.CS_TimeContextMismatch
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         U8 currTimeBase = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(currTimeBase);
@@ -2600,7 +2600,7 @@ namespace RefProxy {
       case 0x1000600F: {
         // Ref.cmdSeq.CS_PortSequenceStarted
         Fw::StringTemplate<60> filename;
-        _status = _packet.deserializeTo(filename);
+        _status = deserializeRemoteString(_packet, filename);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdSeq_CS_PortSequenceStarted(filename);
         }
@@ -2632,7 +2632,7 @@ namespace RefProxy {
       case 0x10006013: {
         // Ref.cmdSeq.CS_SequenceValid
         Fw::StringTemplate<60> filename;
-        _status = _packet.deserializeTo(filename);
+        _status = deserializeRemoteString(_packet, filename);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdSeq_CS_SequenceValid(filename);
         }
@@ -2641,7 +2641,7 @@ namespace RefProxy {
       case 0x10006014: {
         // Ref.cmdSeq.CS_SequenceTimeout
         Fw::StringTemplate<60> filename;
-        _status = _packet.deserializeTo(filename);
+        _status = deserializeRemoteString(_packet, filename);
         U32 command = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(command);
@@ -2654,7 +2654,7 @@ namespace RefProxy {
       case 0x10006015: {
         // Ref.cmdSeq.CS_CmdStepped
         Fw::StringTemplate<60> filename;
-        _status = _packet.deserializeTo(filename);
+        _status = deserializeRemoteString(_packet, filename);
         U32 command = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(command);
@@ -2667,7 +2667,7 @@ namespace RefProxy {
       case 0x10006016: {
         // Ref.cmdSeq.CS_CmdStarted
         Fw::StringTemplate<60> filename;
-        _status = _packet.deserializeTo(filename);
+        _status = deserializeRemoteString(_packet, filename);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_cmdSeq_CS_CmdStarted(filename);
         }
@@ -2676,7 +2676,7 @@ namespace RefProxy {
       case 0x10006017: {
         // Ref.cmdSeq.CS_JoinWaiting
         Fw::StringTemplate<60> filename;
-        _status = _packet.deserializeTo(filename);
+        _status = deserializeRemoteString(_packet, filename);
         U32 recordNumber = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(recordNumber);
@@ -2698,7 +2698,7 @@ namespace RefProxy {
       case 0x10006019: {
         // Ref.cmdSeq.CS_NoRecords
         Fw::StringTemplate<60> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_cmdSeq_CS_NoRecords(fileName);
         }
@@ -2738,7 +2738,7 @@ namespace RefProxy {
       case 0x10007003: {
         // Ref.wasmSeq.ModuleNotFound
         Fw::StringTemplate<16> module_name;
-        _status = _packet.deserializeTo(module_name);
+        _status = deserializeRemoteString(_packet, module_name);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_wasmSeq_ModuleNotFound(module_name);
         }
@@ -2747,7 +2747,7 @@ namespace RefProxy {
       case 0x10007004: {
         // Ref.wasmSeq.FileOpenError
         Fw::StringTemplate<240> fileName;
-        _status = _packet.deserializeTo(fileName);
+        _status = deserializeRemoteString(_packet, fileName);
         I32 status = 0;
         if (_status == Fw::FW_SERIALIZE_OK) {
           _status = _packet.deserializeTo(status);
@@ -2865,7 +2865,7 @@ namespace RefProxy {
       case 0x10007012: {
         // Ref.wasmSeq.GuestFatal
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_FATAL_wasmSeq_GuestFatal(msg);
         }
@@ -2874,7 +2874,7 @@ namespace RefProxy {
       case 0x10007013: {
         // Ref.wasmSeq.GuestWarningHi
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_HI_wasmSeq_GuestWarningHi(msg);
         }
@@ -2883,7 +2883,7 @@ namespace RefProxy {
       case 0x10007014: {
         // Ref.wasmSeq.GuestWarningLo
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_WARNING_LO_wasmSeq_GuestWarningLo(msg);
         }
@@ -2892,7 +2892,7 @@ namespace RefProxy {
       case 0x10007015: {
         // Ref.wasmSeq.GuestCommand
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_COMMAND_wasmSeq_GuestCommand(msg);
         }
@@ -2901,7 +2901,7 @@ namespace RefProxy {
       case 0x10007016: {
         // Ref.wasmSeq.GuestActivityHi
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_HI_wasmSeq_GuestActivityHi(msg);
         }
@@ -2910,7 +2910,7 @@ namespace RefProxy {
       case 0x10007017: {
         // Ref.wasmSeq.GuestActivityLo
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_ACTIVITY_LO_wasmSeq_GuestActivityLo(msg);
         }
@@ -2919,7 +2919,7 @@ namespace RefProxy {
       case 0x10007018: {
         // Ref.wasmSeq.GuestDiagnostic
         Fw::StringTemplate<128> msg;
-        _status = _packet.deserializeTo(msg);
+        _status = deserializeRemoteString(_packet, msg);
         if (_status == Fw::FW_SERIALIZE_OK) {
           this->log_DIAGNOSTIC_wasmSeq_GuestDiagnostic(msg);
         }

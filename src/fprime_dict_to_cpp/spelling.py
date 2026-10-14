@@ -53,18 +53,22 @@ __all__ = [
     "Spelling",
     "TYPE_IDENTIFIER",
     "TypeNamer",
+    "SIZE_STORE_TYPE",
     "WIRE_TYPE_NAMES",
     "check_type_identifier",
     "safe_identifier",
 ]
 
-#: The remote's packet-header type aliases, in the order the proxy declares them.
+#: The remote's wire-format type aliases, in the order the proxy declares them.
 #:
 #: Emitted whether or not a mirrored member reaches them, because the decoders read every
-#: packet header at these widths and so name all five.  Declaring them as types rather
+#: packet header and string length at these widths and so name all six.  Declaring them as types rather
 #: than as C++ ``using`` aliases keeps the wire format in the model, where a reader can
 #: see it beside the members it applies to.
 WIRE_TYPE_NAMES = tuple(alias for alias, _ in PlatformTypes.DEFAULTS.values())
+
+#: The remote's string length prefix, among :data:`WIRE_TYPE_NAMES`.
+SIZE_STORE_TYPE = PlatformTypes.DEFAULTS["size_store"][0]
 
 
 class Context(Enum):
@@ -333,9 +337,18 @@ class Spelling:
         """The C++ spelling of ``ref`` as a formal parameter of a generated function.
 
         Mirrors ``fpp-to-cpp``: built-ins and aliases-to-built-ins pass by value,
-        everything else by ``const`` reference.  An override whose parameter list
-        disagrees would not override anything.
+        everything else by ``const`` reference.  A command handler follows the same
+        rule, except that a string and a string alias both arrive as
+        ``const Fw::CmdStringArg&``.  An override whose parameter list disagrees would
+        not override anything.
         """
+        if ref.kind is TypeKind.QUALIFIED and context is Context.COMMAND:
+            definition = self.definition(ref.name)
+            if (
+                isinstance(definition, AliasDef)
+                and definition.underlying.kind is TypeKind.STRING
+            ):
+                return f"const {self._cpp_string(definition.underlying, context)}&"
         if ref.kind is TypeKind.QUALIFIED and self.resolves_to_builtin(ref.name):
             return self.namer.cpp(ref.name)
         if ref.kind is TypeKind.QUALIFIED or ref.kind is TypeKind.STRING:
@@ -355,9 +368,18 @@ class Spelling:
         size 80`` generates ``using X = Fw::String``, whose capacity is
         ``FW_FIXED_LENGTH_STRING_SIZE`` and not 80, so a size computed from the
         dictionary would disagree with the slot the sender actually left.
+
+        A string's length prefix is the exception, being the one width ``fpp-to-cpp``
+        would spell with the *local* ``FwSizeStoreType``: the remote left room for its own.
         """
+        remote = f"sizeof({self.namer.cpp(SIZE_STORE_TYPE)})"
         if ref.kind is TypeKind.STRING:
-            return f"Fw::StringBase::STATIC_SERIALIZED_SIZE({self._string_size(ref)})"
+            return f"({remote} + {self._string_size(ref)})"
+        if ref.kind is TypeKind.QUALIFIED and self.is_string(ref):
+            return (
+                f"({self.namer.cpp(ref.name)}::SERIALIZED_SIZE - "
+                f"sizeof(FwSizeStoreType) + {remote})"
+            )
         if ref.kind is TypeKind.QUALIFIED:
             # A scalar alias is a using-declaration, so it has no SERIALIZED_SIZE; every
             # other generated type is a class that does.
@@ -383,6 +405,40 @@ class Spelling:
             raise DictionaryError(f"string type {ref.name!r} has no size")
         return ref.size
 
+    def is_string(self, ref: TypeRef) -> bool:
+        """Whether ``ref`` is a string, written as one or through an alias to one.
+
+        Such a value is the one thing whose wire form depends on ``FwSizeStoreType``, so
+        it is serialized by the proxy's own helpers rather than by ``Fw::StringBase``.
+        """
+        if ref.kind is TypeKind.STRING:
+            return True
+        if ref.kind is not TypeKind.QUALIFIED:
+            return False
+        definition = self.definition(ref.name)
+        return (
+            isinstance(definition, AliasDef)
+            and definition.underlying.kind is TypeKind.STRING
+        )
+
+    def nested_strings(self) -> list[str]:
+        """The mirrored structs and arrays holding a string, which ``fpp-to-cpp`` codes.
+
+        Their autocoded ``serializeTo`` writes each string's length at the *local*
+        ``FwSizeStoreType``, and nothing the proxy generates can get in between.
+        """
+        nested = []
+        for definition in self.type_defs():
+            if isinstance(definition, StructDef):
+                held = [member.type for member in definition.members]
+            elif isinstance(definition, ArrayDef):
+                held = [definition.element]
+            else:
+                continue
+            if any(self.is_string(ref) for ref in held):
+                nested.append(definition.qualified_name)
+        return nested
+
     def resolves_to_builtin(self, qualified: str) -> bool:
         """Whether ``qualified`` is an alias whose underlying type is a built-in.
 
@@ -401,7 +457,7 @@ class Spelling:
     def definition(self, qualified: str) -> TypeDef | None:
         """The definition the proxy will emit for ``qualified``, if it emits one.
 
-        The dictionary's own entry, or -- for a packet-header alias the dictionary left
+        The dictionary's own entry, or -- for a wire-format alias the dictionary left
         out -- the one :meth:`wire_type_defs` synthesises in its place.
         """
         found = self._dictionary.type_def(qualified)
@@ -435,9 +491,9 @@ class Spelling:
         return self._wire_cache
 
     def wire_type_defs(self) -> tuple[AliasDef, ...]:
-        """The remote's packet-header aliases, in :data:`WIRE_TYPE_NAMES` order.
+        """The remote's wire-format aliases, in :data:`WIRE_TYPE_NAMES` order.
 
-        Always all five, even the ones no mirrored member mentions: the decoders read
+        Always all six, even the ones no mirrored member mentions: the decoders read
         every header field at the remote's recorded width, so the component declares the
         widths whether or not the ground interface happens to use them.  A dictionary that
         did not record one gets F Prime's default, synthesised here -- which is the width
@@ -475,8 +531,8 @@ class Spelling:
         actively break the build -- a stray ``FwSizeStoreType`` shadows FPP's implied use
         of that name and takes every string in the module down with it.
 
-        The packet-header aliases are left out, because :meth:`wire_type_defs` emits all
-        five unconditionally and one type cannot be declared twice.
+        The wire-format aliases are left out, because :meth:`wire_type_defs` emits all
+        six unconditionally and one type cannot be declared twice.
 
         Ordering is by dependency.  FPP resolves names within a scope regardless of
         order, so this is for readability rather than correctness.

@@ -297,7 +297,7 @@ def _constant(raw: dict[str, Any], source: str) -> ConstantDef:
 
 
 def _platform_types(type_defs: Sequence[TypeDef]) -> PlatformTypes:
-    """Pull the remote's packet-header widths out of its type definitions.
+    """Pull the remote's wire widths out of its type definitions.
 
     These are what the remote actually put on the wire.  Reading them from the
     dictionary rather than from the local ``FpConfig.h`` is what lets a proxy talk to
@@ -319,6 +319,7 @@ def _platform_types(type_defs: Sequence[TypeDef]) -> PlatformTypes:
         event_id=width("event_id"),
         channel_id=width("channel_id"),
         packetize_id=width("packetize_id"),
+        size_store=width("size_store"),
     )
 
 

@@ -167,8 +167,28 @@ class TestCppSpelling:
 
     def test_class_types_go_by_const_reference(self, plan: Plan) -> None:
         assert (
+            plan.spelling.cpp_param(COLOR, Context.EVENT)
+            == "const ::RefProxy::RefProxy_Ref_DpDemo_ColorEnum&"
+        )
+
+    def test_command_class_arguments_go_by_const_reference(self, plan: Plan) -> None:
+        # fpp-to-cpp (F Prime 4.x) hands a command handler a class-typed argument by
+        # const reference, so an override taking it by value would hide the pure
+        # virtual instead.
+        assert (
             plan.spelling.cpp_param(COLOR, Context.COMMAND)
             == "const ::RefProxy::RefProxy_Ref_DpDemo_ColorEnum&"
+        )
+
+    def test_command_scalar_alias_goes_by_value(self, plan: Plan) -> None:
+        assert plan.spelling.cpp_param(SIZE_ALIAS, Context.COMMAND) == (
+            "::RefProxy::RefProxy_FwSizeType"
+        )
+
+    def test_command_string_alias_is_a_command_string(self, plan: Plan) -> None:
+        assert (
+            plan.spelling.cpp_param(STRING_ALIAS, Context.COMMAND)
+            == "const Fw::CmdStringArg&"
         )
 
     def test_alias_to_a_scalar_goes_by_value(self, plan: Plan) -> None:
@@ -199,9 +219,11 @@ class TestSerializedSize:
         assert plan.spelling.serialized_size(U32) == "sizeof(U32)"
 
     def test_string(self, plan: Plan) -> None:
+        # Not Fw::StringBase::STATIC_SERIALIZED_SIZE, which counts this build's
+        # FwSizeStoreType: the remote left room for its own length prefix.
         assert (
             plan.spelling.serialized_size(STRING40)
-            == "Fw::StringBase::STATIC_SERIALIZED_SIZE(40)"
+            == "(sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType) + 40)"
         )
 
     def test_enum_array_and_struct(self, plan: Plan) -> None:
@@ -224,10 +246,12 @@ class TestSerializedSize:
     def test_alias_to_a_string_asks_the_generated_type(self, plan: Plan) -> None:
         # `type X = string size 80` generates `using X = Fw::String`, whose capacity is
         # FW_FIXED_LENGTH_STRING_SIZE and not 80.  A size computed from the dictionary
-        # would disagree with the slot the sender actually left.
-        assert (
-            plan.spelling.serialized_size(STRING_ALIAS)
-            == "::RefProxy::RefProxy_Ref_DpDemo_StringAlias::SERIALIZED_SIZE"
+        # would disagree with the slot the sender actually left.  Its length prefix is
+        # swapped for the remote's, as a bare string's is.
+        assert plan.spelling.serialized_size(STRING_ALIAS) == (
+            "(::RefProxy::RefProxy_Ref_DpDemo_StringAlias::SERIALIZED_SIZE - "
+            "sizeof(FwSizeStoreType) + "
+            "sizeof(::RefProxy::RefProxy_Remote_FwSizeStoreType))"
         )
 
 

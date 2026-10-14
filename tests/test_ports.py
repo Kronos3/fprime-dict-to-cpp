@@ -542,7 +542,10 @@ class TestPortFormals:
             "const Fw::StringTemplate<100> _clampedSourceFileName(sourceFileName);"
             in commands
         )
-        assert "_packet.serializeFrom(_clampedSourceFileName);" in commands
+        assert (
+            "_status = serializeRemoteString(_packet, _clampedSourceFileName);"
+            in commands
+        )
 
     def test_a_generated_port_type_is_declared_beside_the_component(
         self, ref: Dictionary
@@ -643,3 +646,68 @@ class TestPacketSelection:
     ) -> None:
         plan = plan_for(ref, packetized=False, packet_ports={PACKET: False})
         assert not plan.ports
+
+
+class TestChannelizedOff:
+    """``channelized: false``: a channel arrives only in a telemetry packet's slot."""
+
+    @staticmethod
+    def _carried(ref: Dictionary) -> set[QualifiedName]:
+        return {
+            member
+            for packet_set in ref.packet_sets
+            for packet in packet_set.packets
+            for member in packet.members
+        }
+
+    def test_no_channelized_decoder_is_generated(self, ref: Dictionary) -> None:
+        plan = plan_for(ref, channelized=False)
+        assert not plan.decodes_channels
+        assert "RefProxyTelemetry" not in cpp_file_names(plan)
+        assert (
+            "DESCRIPTOR_TELEM"
+            not in render_implementation(plan).files(cpp_file_names(plan))[
+                "RefProxy.cpp"
+            ]
+        )
+        assert plan.has_packets
+
+    def test_only_channels_a_packet_carries_are_declared(self, ref: Dictionary) -> None:
+        carried = self._carried(ref)
+        assert any(channel.name not in carried for channel in ref.channels)
+        plan = plan_for(ref, channelized=False)
+        assert {c.source.name for c in plan.declared_channels} == carried
+        assert any("carried by no decoded telemetry packet" in w for w in plan.warnings)
+
+    def test_packet_ports_alone_declare_no_channel(self, ref: Dictionary) -> None:
+        # What a proxy that only feeds flight software from packets looks like.
+        plan = plan_for(
+            ref, channelized=False, omit_telemetry=["*"], packet_ports={PACKET: True}
+        )
+        assert not plan.declared_channels
+        assert not plan.decodes_channels
+        assert {p.qualified_name for p in plan.packets} == {PACKET}
+        assert not any("carried by no" in w for w in plan.warnings)
+
+    def test_a_telemetry_port_no_packet_feeds_is_an_error(
+        self, ref: Dictionary
+    ) -> None:
+        loose = next(c.name for c in ref.channels if c.name not in self._carried(ref))
+        with pytest.raises(NamingError, match="channelized telemetry is turned off"):
+            plan_for(ref, channelized=False, telemetry_ports={loose: True})
+
+    def test_a_telemetry_port_a_packet_feeds_is_kept(self, ref: Dictionary) -> None:
+        plan = plan_for(
+            ref, channelized=False, omit=["*"], telemetry_ports={CHANNEL: True}
+        )
+        assert hooked(plan) == {str(CHANNEL)}
+        assert PACKET in {p.qualified_name for p in plan.packets}
+
+    def test_omitting_every_channel_without_a_port_is_warned_about(
+        self, ref: Dictionary
+    ) -> None:
+        # Nothing is left to decode a packet into, which is otherwise a silent
+        # disappearance of the whole packetized decoder.
+        plan = plan_for(ref, channelized=False, omit_telemetry=["*"])
+        assert not plan.packets
+        assert any("no telemetry packet is decoded" in w for w in plan.warnings)

@@ -182,8 +182,33 @@ def render_implementation(plan: Plan) -> CppDocBuilder:
         _decoders(cls, plan)
         _helpers(cls, plan)
         _members(cls, plan)
+        _custom_members(cls, plan)
 
     return doc
+
+
+def _custom_members(cls: ClassBuilder, plan: Plan) -> None:
+    """Splice the project's own member declarations into the class body.
+
+    By ``#include`` rather than by subclassing, because the topology instantiates this
+    class by name: the handlers a custom command or input port obliges the autocoded base
+    to declare have to be overridden *here*.  Last, each in a section of its own access,
+    so neither header has to say which it is and an access specifier one does write
+    cannot change how a generated member reads.
+    """
+    config = plan.config
+    for custom, section, access in (
+        (config.custom_public_hpp, cls.public, "public"),
+        (config.custom_private_hpp, cls.private, "private"),
+    ):
+        if not custom:
+            continue
+        with section(f"Custom {access} members"):
+            cls.lines(
+                f"// Declared by this project's own {custom}; not generated.\n"
+                f'#include "{custom}"',
+                margin=None,
+            )
 
 
 #: How ``fpp-to-cpp`` names the header it generates for each kind of type definition.

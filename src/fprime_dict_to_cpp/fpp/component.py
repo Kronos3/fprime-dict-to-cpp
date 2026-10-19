@@ -46,7 +46,25 @@ def render_component(plan: Plan) -> str:
             _include(writer, plan, "Commands", "Commands")
             _include(writer, plan, "Events", "Events")
             _include(writer, plan, "Telemetry", "Telemetry")
+            _custom_include(writer, plan)
     return writer.render()
+
+
+def _custom_include(writer: FppWriter, plan: Plan) -> None:
+    """Include the project's own fragment, last, so its members follow every generated one.
+
+    Last because a member with no explicit id or opcode takes the one after the member
+    before it: here, that is the last generated member of its kind, rather than a
+    generated member being pushed along by the project's.
+    """
+    custom = plan.config.custom_fpp
+    if not custom:
+        return
+    writer.banner("Custom members")
+    writer.comment(
+        "This project's own, not generated from the dictionary: edit the file itself."
+    )
+    writer.line(f"include {string_literal(custom)}")
 
 
 def _include(writer: FppWriter, plan: Plan, section: str, banner: str) -> None:

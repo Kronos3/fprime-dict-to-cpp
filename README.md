@@ -466,6 +466,93 @@ follow from a kind list being matched per kind:
   a channel in the `Ref` dictionary; naming a command in `omit-events` is a mistake worth
   hearing about rather than a line that quietly does nothing.
 
+## Adding members of your own
+
+Everything above shapes what the dictionary becomes. A proxy often needs something the
+remote's interface does not have at all — a command of its own, a counter, a port onto
+a rate group — and editing the generated files is not an option, since the next run
+writes over them. Four keys build files of your own into the component instead:
+
+```yaml
+custom-fpp: RefProxyCustom.fppi          # included inside the component
+custom-public-hpp: RefProxyPublic.hpp    # included inside the class, in a public section
+custom-private-hpp: RefProxyPrivate.hpp  # included inside the class, in a private section
+custom-cpp: RefProxyCustom.cpp           # added to CMakeLists.txt's SOURCES
+```
+
+`RefProxyCustom.fppi` is component members, just like the generated fragments, and is
+included after all of them:
+
+```
+@ Ping the proxy itself, rather than the remote
+async command PROXY_PING(token: U32)
+
+@ Answers PROXY_PING
+event ProxyPong(token: U32, color: Ref_DpDemo_ColorEnum) severity activity high format "pong {} {}"
+
+@ Poked by a rate group
+async input port poke: Svc.Sched
+```
+
+A command or input port there obliges the autocoded base class to declare a pure virtual
+handler, which the implementation class has to override. The topology instantiates that
+class by name, so the override cannot go in a subclass. Instead the two headers are
+`#include`d **inside** the generated class body, after every generated member, each in a
+section of its own access, and hold just declarations. The handlers go in
+`RefProxyPrivate.hpp`, as the generated ones are private too:
+
+```cpp
+void PROXY_PING_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 token) override;
+void poke_handler(FwIndexType portNum, U32 context) override;
+U32 m_pings = 0;
+```
+
+and whatever the rest of the deployment should be able to call — a configuration function
+the topology calls before start-up, an accessor — goes in `RefProxyPublic.hpp`:
+
+```cpp
+U32 pings() const;
+```
+
+Neither header has to write an access specifier, and one it does write cannot change how a
+generated member reads, since both come last.
+
+and `RefProxyCustom.cpp` defines them, as any component source would:
+
+```cpp
+#include "Ref/RefProxy/RefProxy.hpp"
+
+namespace RefProxy {
+void RefProxy::PROXY_PING_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 token) {
+  this->log_ACTIVITY_HI_ProxyPong(token, RefProxy_Ref_DpDemo_ColorEnum::RED);
+  this->cmdResponse_out(opCode, cmdSeq, Fw::CmdResponse::OK);
+}
+// ...
+}
+```
+
+* **None of the four is ever written.** Each must exist when the tool runs, and naming
+  one of the files the tool generates (`RefProxyEvents.fppi`, `RefProxyCommands.cpp`)
+  is an error — every name the component *could* own is refused, not only those this run
+  populates, so a later `omit` cannot turn your file into a casualty.
+* **Paths are relative to the component's directory** in what is generated, whatever they
+  were relative to on the way in — the working directory for a flag, the configuration
+  file's directory for a key — since that is what an FPP `include`, a quoted `#include`
+  and `${CMAKE_CURRENT_LIST_DIR}` all resolve against.
+* **Ids follow the generated ones.** A custom member with no explicit `opcode` or `id`
+  takes the one after the last generated member of its kind, so it moves whenever those
+  do — omitting a member, say. Give it an explicit one, clear of the generated range, to
+  pin it.
+* **The headers cannot `#include` anything**, because they are read inside a class. What
+  the autocoded base class includes — every FPP type and port the model mentions — is what
+  they have.
+* **A port definition is not a component member**, so a custom port needs a port type
+  that is already in the build, such as `Svc.Sched`; defining a new one means a `.fpp` of
+  your own, listed in the kept `CMakeLists.txt`.
+* Any one can be given alone. An `.fppi` declaring only events and telemetry needs no
+  header; a public header alone can add a function the topology calls, without any new
+  FPP.
+
 ### Other options
 
 | Option | Effect |
@@ -479,6 +566,7 @@ follow from a kind list being matched per kind:
 | `--no-channelized` | skip `FW_PACKET_TELEM` decoding, so channels arrive only in telemetry packets; a channel no decoded packet carries is not declared |
 | `--no-diagnostics` | omit the proxy's own health telemetry and events |
 | `--type-prefix` | prepend a prefix to every generated type name |
+| `--custom-fpp`, `--custom-public-hpp`, `--custom-private-hpp`, `--custom-cpp` | build [files of your own](#adding-members-of-your-own) into the component |
 | `--include-prefix` | path prefix for the `#include` of the autocoded base class; by default the output directory's path below the nearest enclosing `settings.ini`, `project.cmake` or `library.cmake` |
 | `--clang-format [STYLE]` | run the generated C++ through `clang-format` |
 | `--cross-check` | also parse the dictionary with `fprime-gds` and report disagreements |

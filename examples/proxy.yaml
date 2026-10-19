@@ -113,6 +113,27 @@ type-names:
 # packet-ports:
 #   RefPackets.CDH: true
 
+# Files of this project's own, built into the generated component beside what the
+# dictionary produces -- commands, events, telemetry or ports the remote does not have.
+# None is ever written by a run, and each one must exist; like the paths at the top, a
+# relative one resolves against this file's directory.
+#
+# custom-fpp is included inside the component after every generated member, so it may
+# name the mirrored types as the generated fragments do (Ref_DpDemo_ColorEnum).  A
+# member in it without an explicit id or opcode follows the last generated one of its
+# kind, and moves when they do.
+#
+# The two headers are #included inside the implementation class, after every generated
+# member: custom-public-hpp in a public section, for what the rest of the deployment may
+# call on the component, and custom-private-hpp in a private one, for the handlers
+# custom-fpp's commands and input ports need and any state they keep.  Being inside a
+# class, neither can #include anything itself.  custom-cpp defines what they declare,
+# and is added to CMakeLists.txt's SOURCES.
+# custom-fpp: ../build-artifacts/RefProxy/RefProxyCustom.fppi
+# custom-public-hpp: ../build-artifacts/RefProxy/RefProxyPublic.hpp
+# custom-private-hpp: ../build-artifacts/RefProxy/RefProxyPrivate.hpp
+# custom-cpp: ../build-artifacts/RefProxy/RefProxyCustom.cpp
+
 # Prepend this to every generated type name, if one would otherwise clash with a
 # framework type of the same leaf name.
 type-prefix: ""

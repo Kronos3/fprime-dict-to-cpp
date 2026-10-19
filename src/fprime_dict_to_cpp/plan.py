@@ -320,6 +320,62 @@ class Config:
     normally the component's directory relative to the project root.
     """
 
+    custom_fpp: str = ""
+    """An ``.fppi`` of the project's own, included inside the component after every
+    generated member; empty for none.
+
+    Relative to the component's directory, since that is what FPP resolves an ``include``
+    against.  It may declare anything a component member can be -- commands, events,
+    channels, parameters, ports -- and may name the mirrored types and widths as the
+    generated fragments do.  A member with no explicit id or opcode follows the last
+    generated one of its kind, so it moves whenever they do; give it one to pin it.
+    """
+
+    custom_public_hpp: str = ""
+    """A header ``#include``\\ d *inside* the implementation class, in a ``public``
+    section after every generated member; empty for none.
+
+    Relative to the component's directory.  It holds declarations only -- whatever the
+    rest of the deployment should be able to call on the component, such as a
+    configuration function its topology calls before start-up.  Being inside a class, it
+    cannot ``#include`` anything itself; what the autocoded base class includes is what
+    it has.
+    """
+
+    custom_private_hpp: str = ""
+    """The same as :attr:`custom_public_hpp`, but read in a ``private`` section.
+
+    Where the handlers :attr:`custom_fpp`'s commands and input ports oblige the class to
+    override belong, as the generated handlers do, along with any state they keep.
+    """
+
+    custom_cpp: str = ""
+    """A source file of the project's own, listed in the generated ``CMakeLists.txt``;
+    empty for none.  Relative to the component's directory.  Where the two headers'
+    declarations are defined."""
+
+    @property
+    def custom_files(self) -> tuple[str, ...]:
+        """The project's own files this component is built with, in the order above."""
+        return tuple(path for path, _ in self.custom_keys if path)
+
+    @property
+    def custom_headers(self) -> tuple[str, ...]:
+        """The project's own headers, public first."""
+        return tuple(
+            path for path in (self.custom_public_hpp, self.custom_private_hpp) if path
+        )
+
+    @property
+    def custom_keys(self) -> tuple[tuple[str, str], ...]:
+        """Each custom file, given or not, with the configuration key that names it."""
+        return (
+            (self.custom_fpp, "custom-fpp"),
+            (self.custom_public_hpp, "custom-public-hpp"),
+            (self.custom_private_hpp, "custom-private-hpp"),
+            (self.custom_cpp, "custom-cpp"),
+        )
+
     @property
     def cpp_namespace(self) -> str:
         """The C++ namespace chain, e.g. ``"Ref::Proxy"`` for module ``Ref.Proxy``."""

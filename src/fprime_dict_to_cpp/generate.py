@@ -13,10 +13,17 @@ from .cmake import render_cmake
 from .cpp import cpp_file_names, render_implementation
 from .cpp.component import SECTIONS
 from .fpp import render_fpp
+from .fpp.files import FRAGMENTS
 from .model import Dictionary
 from .plan import Config, Plan, resolve
 
-__all__ = ["Generated", "generate", "generate_from_plan"]
+__all__ = [
+    "CustomFileError",
+    "Generated",
+    "check_custom_files",
+    "generate",
+    "generate_from_plan",
+]
 
 
 @dataclass(frozen=True)
@@ -109,6 +116,50 @@ def generate(
     )
 
 
+class CustomFileError(Exception):
+    """A file of the project's own that the component cannot be built with."""
+
+
+def check_custom_files(config: Config, output: str | Path) -> None:
+    """Refuse a custom file that is missing, or that this tool would itself write.
+
+    Missing, because the include that names it would otherwise fail in ``fpp-check`` or
+    the compiler, a build later and a long way from the line that asked for it.  One of
+    the generator's own names, because that file is overwritten -- or, once its section
+    empties, removed -- by the very run that is meant to build it in.  Every name the
+    component could own is refused, not just the ones this run populates, so a file
+    that is safe today does not become a casualty of a later ``omit``.
+    """
+    directory = Path(output)
+    owned = _owned_names(config.component)
+    for path, key in config.custom_keys:
+        if not path:
+            continue
+        if Path(path).as_posix() in owned:
+            raise CustomFileError(
+                f"{key}: {path} is a file this tool generates into {directory}, so it "
+                f"would be overwritten; name your own file something else, such as "
+                f"{config.component}Custom{Path(path).suffix}"
+            )
+        if not (directory / path).is_file():
+            raise CustomFileError(
+                f"{key}: {directory / path} does not exist; this tool includes your "
+                "file but does not write it"
+            )
+
+
+def _owned_names(component: str) -> set[str]:
+    """Every file name this tool may generate into a component's directory."""
+    return {
+        "CMakeLists.txt",
+        f"{component}.fpp",
+        f"{component}.hpp",
+        f"{component}.cpp",
+        *(f"{component}{section}.fppi" for section in FRAGMENTS),
+        *(f"{component}{section}.cpp" for section in SECTIONS),
+    }
+
+
 def generate_from_plan(
     parsed: Dictionary,
     output: str | Path,
@@ -119,6 +170,7 @@ def generate_from_plan(
     extra_warnings: list[str] | None = None,
 ) -> Generated:
     """Write a component for an already-parsed dictionary."""
+    check_custom_files(config, output)
     plan = resolve(parsed, config)
     config = plan.config
     if extra_warnings:

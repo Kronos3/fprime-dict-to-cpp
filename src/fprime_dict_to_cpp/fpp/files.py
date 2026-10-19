@@ -19,7 +19,7 @@ from .component import (
 )
 from .typedefs import render_types
 
-__all__ = ["fpp_file_names", "render_fpp"]
+__all__ = ["FRAGMENTS", "fpp_file_names", "render_fpp"]
 
 #: How each fragment is rendered, keyed by the section name :func:`fragments` uses.
 _RENDERERS = {
@@ -28,6 +28,9 @@ _RENDERERS = {
     "Events": render_events,
     "Telemetry": render_telemetry,
 }
+
+#: Every fragment a plan may populate, whether or not a given one does.
+FRAGMENTS = tuple(_RENDERERS)
 
 
 def render_fpp(plan: Plan) -> dict[str, str]:

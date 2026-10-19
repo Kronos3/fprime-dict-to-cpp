@@ -26,6 +26,7 @@ that the answer is the same however the option arrived.
 from __future__ import annotations
 
 import dataclasses
+import os
 import types
 import typing
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -629,6 +630,62 @@ class Options:
         default_factory=dict,
     )
 
+    custom_fpp: Path | None = option(
+        Spec(
+            "custom-fpp",
+            group="custom",
+            relative=True,
+            metavar="FPPI",
+            note="an .fppi of your own, included inside the component after every "
+            "generated member, for commands, events, telemetry or ports the dictionary "
+            "does not have.  A member without an explicit id or opcode follows the last "
+            "generated one of its kind, and moves when they do",
+            example=("custom-fpp: RefProxyCustom.fppi",),
+        ),
+        default=None,
+    )
+
+    custom_public_hpp: Path | None = option(
+        Spec(
+            "custom-public-hpp",
+            group="custom",
+            relative=True,
+            metavar="HPP",
+            note="a header #included inside the implementation class in a public "
+            "section, declaring what the rest of the deployment may call on the "
+            "component.  Unable to #include anything itself, since it is read inside "
+            "the class",
+            example=("custom-public-hpp: RefProxyPublic.hpp",),
+        ),
+        default=None,
+    )
+
+    custom_private_hpp: Path | None = option(
+        Spec(
+            "custom-private-hpp",
+            group="custom",
+            relative=True,
+            metavar="HPP",
+            note="the same, in a private section: where the handlers custom-fpp's "
+            "commands and input ports need belong, and any state they keep",
+            example=("custom-private-hpp: RefProxyPrivate.hpp",),
+        ),
+        default=None,
+    )
+
+    custom_cpp: Path | None = option(
+        Spec(
+            "custom-cpp",
+            group="custom",
+            relative=True,
+            metavar="CPP",
+            note="a source file of your own defining what the custom headers declare, "
+            "added to the generated CMakeLists.txt",
+            example=("custom-cpp: RefProxyCustom.cpp",),
+        ),
+        default=None,
+    )
+
     type_prefix: str = option(
         Spec(
             "type-prefix",
@@ -817,7 +874,24 @@ class Options:
             channelized=self.channelized,
             diagnostics=self.diagnostics,
             include_prefix=self.include_prefix_for(output),
+            custom_fpp=_relative_to(self.custom_fpp, output),
+            custom_public_hpp=_relative_to(self.custom_public_hpp, output),
+            custom_private_hpp=_relative_to(self.custom_private_hpp, output),
+            custom_cpp=_relative_to(self.custom_cpp, output),
         )
+
+
+def _relative_to(path: Path | None, output: Path) -> str:
+    """``path`` as the component's own files spell it: relative to its directory.
+
+    Which is what an FPP ``include``, a quoted ``#include`` and ``${CMAKE_CURRENT_LIST_DIR}``
+    all resolve against, so the one spelling serves all three.  Worked out from both
+    paths resolved, so a component directory reached through a symbolic link still
+    names a file beside it as a bare name.
+    """
+    if path is None:
+        return ""
+    return Path(os.path.relpath(path.resolve(), output.resolve())).as_posix()
 
 
 #: The files whose presence marks a directory as one F Prime puts on the include path.

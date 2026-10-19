@@ -21,7 +21,7 @@ from fprime_cpp_codegen import CppCodegenError
 from . import config_file, dictionary, interactive
 from .cpp import cpp_file_names
 from .fpp import fpp_file_names
-from .generate import Generated, generate
+from .generate import CustomFileError, Generated, check_custom_files, generate
 from .model import Dictionary, DictionaryError, NamingError
 from .options import Invalid, Options, Shape, Spec, specs
 from .plan import Config, Plan, resolve
@@ -62,6 +62,11 @@ _GROUPS: dict[str, tuple[str, str]] = {
         "How a dotted dictionary name such as Ref.dpDemo.SelectColor becomes one "
         "component member name.  Colliding names are re-qualified automatically, "
         "whichever scheme is chosen.",
+    ),
+    "custom": (
+        "custom members",
+        "Files of the project's own, built into the component beside what is generated "
+        "from the dictionary.  Never written: a run only checks that each exists.",
     ),
     "output": ("output", ""),
 }
@@ -225,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
     except (DictionaryError, NamingError) as error:
         print(f"error: {_attributed(error, options)}", file=sys.stderr)
         return 2
+    except CustomFileError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
     except CppCodegenError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
@@ -260,6 +268,13 @@ def _override_note(config: Config) -> str | None:
     if types:
         parts.append(f"{types} type name(s)")
     return f"  named explicitly: {', '.join(parts)}"
+
+
+def _custom_note(config: Config) -> str | None:
+    """A line naming the project's own files the component is built with, if any."""
+    if not config.custom_files:
+        return None
+    return f"  built with your own: {', '.join(config.custom_files)}"
 
 
 def _hook_notes(plan: Plan) -> list[str]:
@@ -313,9 +328,9 @@ def _report(result: Generated, scaffold: interactive.Scaffold | None = None) -> 
     )
     for line in _hook_notes(plan):
         print(line)
-    note = _override_note(plan.config)
-    if note:
-        print(note)
+    for note in (_override_note(plan.config), _custom_note(plan.config)):
+        if note:
+            print(note)
     if scaffold is not None and scaffold.written:
         print(f"  {'wrote':9s} {scaffold.config}")
     for path in result.files:
@@ -345,6 +360,7 @@ def _report_dry_run(
     parsed: Dictionary, config: Config, output: Path, *, quiet: bool
 ) -> int:
     """Describe what a run would produce, without writing anything."""
+    check_custom_files(config, output)
     plan = resolve(parsed, config)
     for warning in plan.warnings:
         print(f"warning: {warning}", file=sys.stderr)
@@ -363,9 +379,9 @@ def _report_dry_run(
     print(f"  {len(plan.spelling.all_type_defs())} type definitions")
     for line in _hook_notes(plan):
         print(line)
-    note = _override_note(config)
-    if note:
-        print(note)
+    for note in (_override_note(config), _custom_note(config)):
+        if note:
+            print(note)
     names = [
         *fpp_file_names(plan),
         "CMakeLists.txt",

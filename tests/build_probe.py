@@ -77,14 +77,24 @@ def generate(
     event_ports: dict[QualifiedName, bool | str] | None = None,
     telemetry_ports: dict[QualifiedName, bool | str] | None = None,
     packet_ports: dict[str, bool | str] | None = None,
+    custom: dict[str, tuple[str, str]] | None = None,
     path: Path = DICTIONARY,
 ) -> tuple[Config, Path, tuple[str, ...]]:
     """Write a component's model and implementation into ``output``.
 
     ``include_prefix`` is left empty so everything lands in one flat directory, which is
     what makes the files compilable without a CMake build tree.
+
+    ``custom`` maps a :class:`Config` field -- ``custom_fpp``, ``custom_public_hpp``,
+    ``custom_private_hpp`` or ``custom_cpp`` -- to the name and text of a project's own
+    file, which is written beside the generated ones and built in through that field.
     """
     parsed = dictionary.load(path)
+    output.mkdir(parents=True, exist_ok=True)
+    chosen: dict[str, str] = {}
+    for key, (name, text) in (custom or {}).items():
+        (output / name).write_text(text)
+        chosen[key] = name
     config = Config(
         component=component,
         namespace=namespace,
@@ -100,9 +110,12 @@ def generate(
         diagnostics=diagnostics,
         packetized=packetized,
         include_prefix="",
+        custom_fpp=chosen.get("custom_fpp", ""),
+        custom_public_hpp=chosen.get("custom_public_hpp", ""),
+        custom_private_hpp=chosen.get("custom_private_hpp", ""),
+        custom_cpp=chosen.get("custom_cpp", ""),
     )
     plan = resolve(parsed, config)
-    output.mkdir(parents=True, exist_ok=True)
     for name, text in render_fpp(plan).items():
         (output / name).write_text(text)
     render_implementation(plan).write(output)

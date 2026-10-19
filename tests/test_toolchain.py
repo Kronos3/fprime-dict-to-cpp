@@ -22,6 +22,7 @@ import pytest
 import build_probe
 from fpptools import Toolchain, find_toolchain
 
+from fprime_dict_to_cpp import dictionary
 from fprime_dict_to_cpp.fpp import render_fpp
 from fprime_dict_to_cpp.model import ComInput, ComponentKind, Dictionary, QualifiedName
 from fprime_dict_to_cpp.naming import PRESETS, Naming
@@ -402,6 +403,162 @@ class TestHookedPorts:
             tmp_path / "out", keep=False, diagnostics=False, **PORTS_ONLY
         )
         assert result.ok, "\n\n".join(result.failures())
+
+
+#: A project's own members, of every shape the custom files exist for: a command and an
+#: input port, whose handlers the private header has to declare, an event and a channel
+#: the source reports through -- one of them carrying a mirrored type, named as the
+#: generated fragments name it -- and a public accessor for the rest of the deployment.
+#: Keyed by the configuration field each file is built in through.
+CUSTOM: dict[str, tuple[str, str]] = {
+    "custom_fpp": (
+        "RefProxyCustom.fppi",
+        """\
+@ Ping the proxy itself, rather than the remote
+async command PROXY_PING(token: U32)
+
+@ Answers PROXY_PING
+event ProxyPong(token: U32, color: Ref_DpDemo_ColorEnum) \\
+  severity activity high \\
+  format "pong {} {}"
+
+@ PROXY_PINGs answered
+telemetry ProxyPings: U32
+
+@ Poked by a rate group
+async input port poke: Svc.Sched
+""",
+    ),
+    "custom_public_hpp": (
+        "RefProxyPublic.hpp",
+        """\
+//! PROXY_PINGs answered so far
+U32 pings() const;
+""",
+    ),
+    "custom_private_hpp": (
+        "RefProxyPrivate.hpp",
+        """\
+//! Handler for PROXY_PING
+void PROXY_PING_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 token) override;
+
+//! Handler for poke
+void poke_handler(FwIndexType portNum, U32 context) override;
+
+//! PROXY_PINGs answered
+U32 m_pings = 0;
+""",
+    ),
+    "custom_cpp": (
+        "RefProxyCustom.cpp",
+        """\
+#include "RefProxy.hpp"
+
+namespace RefProxy {
+
+U32 RefProxy::pings() const {
+  return this->m_pings;
+}
+
+void RefProxy::PROXY_PING_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 token) {
+  this->m_pings++;
+  this->tlmWrite_ProxyPings(this->m_pings);
+  this->log_ACTIVITY_HI_ProxyPong(token, RefProxy_Ref_DpDemo_ColorEnum::RED);
+  this->cmdResponse_out(opCode, cmdSeq, Fw::CmdResponse::OK);
+}
+
+void RefProxy::poke_handler(FwIndexType portNum, U32 context) {
+  (void)portNum;
+  this->log_ACTIVITY_HI_ProxyPong(context, RefProxy_Ref_DpDemo_ColorEnum::BLUE);
+}
+
+}  // namespace RefProxy
+""",
+    ),
+}
+
+#: Code outside the class, as a topology is, reaching what each header declares.
+_OUTSIDE = """\
+#include "RefProxy.hpp"
+
+U32 countPings(const RefProxy::RefProxy& proxy);
+U32 countPings(const RefProxy::RefProxy& proxy) {
+  return proxy.pings();
+}
+"""
+
+
+class TestCustomMembers:
+    """A project's own ``.fppi``, headers and source, built into the generated component."""
+
+    def test_autocodes_and_compiles_without_warnings(
+        self, toolchain: Toolchain, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "out"
+        result = build_probe.run(output, keep=False, custom=CUSTOM, **HOOKS)
+        assert result.ok, "\n\n".join(result.failures())
+        if not result.compiles:
+            pytest.skip("no C++ compiler, or the F Prime checkout is not autocoded")
+        assert "RefProxyCustom.cpp" in result.compiles
+
+        for name in ("RefProxy.cpp", "RefProxyCustom.cpp"):
+            run = _compile(toolchain, output, output / name)
+            warnings = [
+                line for line in run.stderr.splitlines() if ": warning:" in line
+            ]
+            assert not warnings, f"{name}:\n" + "\n".join(warnings[:10])
+
+    def test_each_header_lands_in_its_own_access_section(
+        self, toolchain: Toolchain, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "out"
+        build_probe.run(output, keep=False, custom=CUSTOM)
+        outside = output / "Outside.cpp"
+        outside.write_text(_OUTSIDE)
+        if build_probe.compiler() is None or not build_probe.framework_is_built(
+            toolchain
+        ):
+            pytest.skip("no C++ compiler, or the F Prime checkout is not autocoded")
+        public = _compile(toolchain, output, outside)
+        assert public.returncode == 0, public.stderr[:4000]
+
+        # And the private one really is private: the same call, to a handler, is refused.
+        outside.write_text(_OUTSIDE.replace("proxy.pings()", "proxy.m_pings"))
+        private = _compile(toolchain, output, outside)
+        assert private.returncode != 0
+        assert "private" in private.stderr
+
+    def test_unpinned_members_follow_the_generated_ones(
+        self, toolchain: Toolchain, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "out"
+        config, model_file, _ = build_probe.generate(output, custom=CUSTOM)
+        assert build_probe.autocode(toolchain, output, model_file).returncode == 0
+        base = (output / "RefProxyComponentAc.hpp").read_text()
+        plan = resolve(dictionary.load(build_probe.DICTIONARY), config)
+        assert f"OPCODE_PROXY_PING = 0x{len(plan.declared_commands):x}," in base
+
+
+def _compile(
+    toolchain: Toolchain, output: Path, source: Path
+) -> subprocess.CompletedProcess[str]:
+    """Syntax-check one translation unit against the autocoded component, warnings on."""
+    executable = build_probe.compiler()
+    assert executable is not None
+    return subprocess.run(
+        [
+            executable,
+            "-std=c++14",
+            "-fsyntax-only",
+            "-Wall",
+            "-Wextra",
+            *build_probe.include_paths(toolchain, output),
+            str(source),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 class TestCheckedInGoldens:

@@ -493,6 +493,10 @@ class TestSkeleton:
                 "name_qualification",
                 "name_overrides",
                 "type_name_overrides",
+                "custom_fpp",
+                "custom_public_hpp",
+                "custom_private_hpp",
+                "custom_cpp",
             ):
                 continue  # no built-in default, or shown as choices rather than a value
             assert getattr(parser, dest) == value, dest

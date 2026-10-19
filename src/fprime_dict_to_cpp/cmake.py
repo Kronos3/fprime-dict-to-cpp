@@ -27,6 +27,11 @@ def render_cmake(plan: Plan) -> str:
     autocoder_inputs = [f"{component}.fpp"]
     sources = [f"{component}.cpp", *(f"{name}.cpp" for name in cpp_file_names(plan))]
     headers = [f"{component}.hpp"]
+    # The project's own: the .fppi is an included file like the generated fragments, but
+    # the source has to be compiled and the header belongs to the module's interface.
+    if config.custom_cpp:
+        sources.append(config.custom_cpp)
+    headers.extend(config.custom_headers)
 
     lines = [
         "####",
@@ -41,6 +46,15 @@ def render_cmake(plan: Plan) -> str:
         "# Module dependencies are derived from the FPP model, so they are not listed",
         f"# again below.  Neither are the .fppi fragments {component}.fpp includes:",
         "# the build tracks them as included files already.",
+        *(
+            [
+                "#",
+                "# Built in, but yours rather than generated:",
+                *(f"#     {name}" for name in config.custom_files),
+            ]
+            if config.custom_files
+            else []
+        ),
         "####",
         "",
         "register_fprime_module(",

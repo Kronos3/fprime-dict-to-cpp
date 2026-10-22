@@ -10,30 +10,78 @@
 # `fprime-dict-to-cpp -i <dictionary>` writes a file like this one for a new component,
 # with the same keys and the same comments, so this is a reference rather than a
 # starting point you have to copy.
+#
+# Each key below opens with what it accepts.  Where that is a fixed set of values, every
+# one is listed with what it does; the one marked (default) is what leaving the key out
+# means.
 
-# Relative dictionary and output paths resolve against *this file's* directory, so the
-# configuration keeps working from whatever directory it is run in.
+# ---------------------------------------------------------------------------------------
+# What to generate, and where
+# ---------------------------------------------------------------------------------------
+
+# dictionary: a path to the remote deployment's JSON dictionary.
+# output:     a path to the directory to write into; <component> by default.
+#
+# Relative paths resolve against *this file's* directory, so the configuration keeps
+# working from whatever directory it is run in.
 dictionary: ../tests/data/RefTopologyDictionary.json
 output: ../build-artifacts/RefProxy
 
+# component: a name.  The generated component's name; <Deployment>Proxy by default.
+#   With kind: types, the stem of each file's name instead; <Deployment>Types by default.
+# namespace: a module name, dotted for nesting (Ref.Proxy).  The FPP module holding the
+#   component and its types, or with kind: types the structs and constants; the
+#   component's name by default.
 component: RefProxy
 namespace: RefProxy
 
-# active (default): decode on the component's own thread.  queued: on whatever drives
-# its run port.  passive: on the caller's thread.
+# kind: one of
+#   active   (default) a component with its own thread, which decodes inbound packets;
+#            commands and command ports are async
+#   queued   a component with a queue but no thread; decoding happens on whatever drives
+#            its run port, so connect that to a rate group
+#   passive  no queue; decodes on the caller's thread, and commands are guarded
+#   types    no component, C++ or CMakeLists.txt at all: only FPP, in <namespace>.
+#            <component>Commands.fpp holds a struct per command's arguments in module
+#            Command, and a constant per opcode in module Opcode.
+#            <component>Packets.fpp holds a struct per telemetry packet's channels in
+#            module Packet, and a constant per packet id in module PacketId.
+#            <component>Types.fpp defines every type they use, flattened
+#            (Ref_DpDemo_ColorEnum), so nothing needs the remote's own FPP.
 kind: active
 
-# instance (default) | qualified | source-case | member.  The two knobs the presets
-# combine are name-qualification and name-style, if a preset is not quite right.
+# ---------------------------------------------------------------------------------------
+# Naming
+# ---------------------------------------------------------------------------------------
+
+# naming: one of, shown for Ref.dpDemo.SelectColor
+#   instance     (default) dpDemo_SelectColor: the innermost instance and the member
+#   qualified    Ref_dpDemo_SelectColor: the whole instance path
+#   source-case  RefDpDemoSelectColor: the whole path, in the member's own convention,
+#                so a SCREAMING_SNAKE member stays screaming
+#   member       SelectColor: the member alone
+#
+# Names that would collide are re-qualified automatically, whichever is chosen.
 naming: instance
+
+# The two knobs the presets above combine, for when no preset is quite right.  Either
+# overrides what naming chose.
+#
+# name-qualification: one of
+#   member    keep only the member's own name
+#   instance  keep the innermost instance too
+#   full      keep the whole instance path
+# name-style: one of
+#   underscore   join the kept segments with '_'
+#   source-case  join them in the member's own convention (CamelCase or SCREAMING_SNAKE)
 # name-qualification: full
 # name-style: source-case
 
-# Individual members named outright, in place of whatever the scheme above would call
-# them: dictionary name on the left, the name the generated component declares on the
-# right.  Everything not listed is still mangled by the scheme, and mangling routes
-# around these -- an automatic name that would have collided with a chosen one is the
-# one that moves.
+# names: a table of dictionary name -> member name.  Members named outright, in place of
+# whatever the scheme above would call them.  Everything not listed is still mangled by
+# the scheme, and mangling routes around these -- an automatic name that would have
+# collided with a chosen one is the one that moves.  With kind: types, a command's entry
+# names its struct and a channel's names its field in each packet struct.
 #
 # A key that matches nothing in the dictionary is an error, not a no-op, so this table
 # cannot quietly outlive the dictionary it was written for.
@@ -41,16 +89,27 @@ names:
   Ref.dpDemo.SelectColor: SelectDemoColor
   CdhCore.cmdDisp.CMD_NO_OP: NoOp
 
-# The same for generated type names, which are otherwise the dictionary's qualified name
-# flattened: Ref.DpDemo.ColorEnum becomes Ref_DpDemo_ColorEnum.  An override is used
-# exactly as written -- type-prefix is not applied to it.
+# type-names: a table of dictionary type name -> generated type name.  The same for
+# generated types, which are otherwise the dictionary's qualified name flattened:
+# Ref.DpDemo.ColorEnum becomes Ref_DpDemo_ColorEnum.  Used exactly as written --
+# type-prefix is not applied to it.  Component kinds only.
 type-names:
   Ref.DpDemo.ColorEnum: DemoColor
 
-# Members the component does not declare, as dictionary names or fnmatch globs.  An
-# omitted member gets no command, event or telemetry declaration, and so no entry in
-# this deployment's ground dictionary -- but it keeps any port hooked onto it below, and
-# that is the combination that gives a proxy nothing but port traffic.
+# type-prefix: any string, "" (default) for none.  Prepended to every generated type
+# name, for a leaf name that would otherwise clash with a framework type.  Component
+# kinds only.
+type-prefix: ""
+
+# ---------------------------------------------------------------------------------------
+# Leaving members out
+# ---------------------------------------------------------------------------------------
+
+# omit: a list of dictionary names or fnmatch globs; empty (default) for none.  Members
+# of any kind the component does not declare.  An omitted member gets no command, event
+# or telemetry declaration, and so no entry in this deployment's ground dictionary --
+# but it keeps any port hooked onto it below, and that is the combination that gives a
+# proxy nothing but port traffic.  With kind: types, it drops command structs only.
 #
 # A name or pattern matching nothing in the dictionary is an error, not a no-op.  Local
 # ids are dense over what remains, so omitting a member renumbers the ones after it,
@@ -59,11 +118,14 @@ type-names:
 #   - "Ref.dpDemo.*"
 #   - "*_PRM_SET"
 
-# The same, one kind at a time.  These are matched against the names of that kind alone,
-# so "*" here takes out every command and leaves the events and channels be, and an entry
-# that matches no command is an error even where the dictionary has an event by that name.
+# omit-commands, omit-events, omit-telemetry: lists, spelled as omit is.  The same, one
+# kind at a time.  These are matched against the names of that kind alone, so "*" here
+# takes out every command and leaves the events and channels be, and an entry that
+# matches no command is an error even where the dictionary has an event by that name.
 # A member is omitted if either list reaches it; omit above is simply the shorthand for
-# saying the same thing in all three.
+# saying the same thing in all three.  An omitted channel is still read, since
+# channelized telemetry carries no lengths to skip it by.  kind: types accepts
+# omit-commands only.
 # omit-commands:
 #   - "*_PRM_SET"
 # omit-events:
@@ -71,108 +133,168 @@ type-names:
 # omit-telemetry:
 #   - "Ref.dpDemo.*"
 
-# Commands to hook an input port onto.  Invoking the port serializes the remote's opcode
-# and the port's arguments into a command packet and sends it, with no ground command and
-# no command response in the way -- which is how flight software commands the remote.
+# ---------------------------------------------------------------------------------------
+# Ports hooked onto members (component kinds only)
+# ---------------------------------------------------------------------------------------
+
+# Each of the four tables below maps a dictionary name, or an fnmatch glob over one, to
+#   true        hook a port, taking the derived name (dpDemo_SelectColor_cmdIn)
+#   false       no port; the same as leaving the line out, so a hook can be switched
+#               off without losing the note about it
+#   a string    hook a port with that name.  Only a name may do this, not a glob, since
+#               every member a glob reached would ask for the same port name
 #
-# Keyed by a dictionary name or an fnmatch glob, exactly as omit above is spelled, and a
-# key matching no command is the same error.  true takes the derived port name
-# (dpDemo_SelectColor -> dpDemo_SelectColor_cmdIn); a string names the port outright, which
-# only a name may do, since every command a glob reached would ask for that one name; false
-# is the same as leaving the line out, so a hook can be switched off without losing the
-# note about it.  The port's own type is generated into <Component>.fpp with the command's
-# formals, so it cannot be handed the wrong arguments.
-#
-# Where two keys reach one command, a name beats a glob over it and, between globs, a
-# refusal beats a request -- so a pattern can hook a whole instance while a second keeps
-# the parameter sets in it unhooked, and a name can then settle one command either way.
+# A key matching nothing is the same error it is in omit.  Where two keys reach one
+# member, a name beats a glob over it and, between globs, a refusal beats a request --
+# so a pattern can hook a whole instance while a second keeps the parameter sets in it
+# unhooked, and a name can then settle one member either way.  Each port's own type is
+# generated into <Component>.fpp with the member's formals, so it cannot be handed the
+# wrong arguments.
+
+# command-ports: an input port per command.  Invoking it serializes the remote's opcode
+# and the port's arguments into a command packet and sends it, with no ground command
+# and no command response in the way -- which is how flight software commands the
+# remote.
 # command-ports:
 #   "Ref.typeDemo.*": true
 #   "*_PRM_SET": false
 #   Ref.dpDemo.SelectColor: true
 #   CdhCore.cmdDisp.CMD_NO_OP: pingRemote
 
-# Events to hook an output port onto, which fires with the event's own arguments when one
-# arrives from the remote.  Spelled as command-ports is.
+# event-ports: an output port per event, which fires with the event's own arguments
+# when one arrives from the remote.
 # event-ports:
 #   CdhCore.cmdDisp.OpCodeDispatched: true
 #   "Ref.dpDemo.*": true
 
-# Telemetry channels to hook an output port onto.  The port carries the value and the
-# timestamp the REMOTE reported, which is the same pair the generated tlmWrite_ helper is
-# given.
+# telemetry-ports: an output port per channel, carrying the value and the timestamp the
+# REMOTE reported, which is the same pair the generated tlmWrite_ helper is given.
 # telemetry-ports:
 #   CdhCore.cmdDisp.CommandsDispatched: true
 #   "CdhCore.cmdDisp.*": true
 
-# Telemetry packets to hook an output port onto, keyed <packet set>.<packet> -- or a glob
-# over the whole of that, so "RefPackets.*" reaches every packet of the set.  The port
-# carries one formal per channel of the packet in wire order, then the single timestamp
-# they all share.  A packet is a layout rather than a declared member, so there is
-# nothing in omit for one: a packet port is what makes a packet visible at all.
+# packet-ports: an output port per telemetry packet, keyed <packet set>.<packet> -- or a
+# glob over the whole of that, so "RefPackets.*" reaches every packet of the set.  The
+# port carries one formal per channel of the packet in wire order, then the single
+# timestamp they all share.  A packet is a layout rather than a declared member, so
+# there is nothing in omit for one: a packet port is what makes a packet visible at all.
 # packet-ports:
 #   RefPackets.CDH: true
 
-# Files of this project's own, built into the generated component beside what the
-# dictionary produces -- commands, events, telemetry or ports the remote does not have.
-# None is ever written by a run, and each one must exist; like the paths at the top, a
-# relative one resolves against this file's directory.
+# ---------------------------------------------------------------------------------------
+# Files of your own (component kinds only)
+# ---------------------------------------------------------------------------------------
+
+# custom-fpp, custom-public-hpp, custom-private-hpp, custom-cpp: each a path to an
+# existing file; none (default) for each.  Built into the generated component beside
+# what the dictionary produces -- commands, events, telemetry or ports the remote does
+# not have.  None is ever written by a run, and each one must exist; like the paths at
+# the top, a relative one resolves against this file's directory.
 #
-# custom-fpp is included inside the component after every generated member, so it may
-# name the mirrored types as the generated fragments do (Ref_DpDemo_ColorEnum).  A
-# member in it without an explicit id or opcode follows the last generated one of its
-# kind, and moves when they do.
+#   custom-fpp          an .fppi included inside the component after every generated
+#                       member, so it may name the mirrored types as the generated
+#                       fragments do (Ref_DpDemo_ColorEnum).  A member in it without an
+#                       explicit id or opcode follows the last generated one of its kind,
+#                       and moves when they do
+#   custom-public-hpp   a header #included inside the implementation class in a public
+#                       section, for what the rest of the deployment may call on it
+#   custom-private-hpp  the same in a private section, for the handlers custom-fpp's
+#                       commands and input ports need, and any state they keep
+#   custom-cpp          a source defining what the headers declare, added to
+#                       CMakeLists.txt's SOURCES
 #
-# The two headers are #included inside the implementation class, after every generated
-# member: custom-public-hpp in a public section, for what the rest of the deployment may
-# call on the component, and custom-private-hpp in a private one, for the handlers
-# custom-fpp's commands and input ports need and any state they keep.  Being inside a
-# class, neither can #include anything itself.  custom-cpp defines what they declare,
-# and is added to CMakeLists.txt's SOURCES.
+# Being inside a class, neither header can #include anything itself.
 # custom-fpp: ../build-artifacts/RefProxy/RefProxyCustom.fppi
 # custom-public-hpp: ../build-artifacts/RefProxy/RefProxyPublic.hpp
 # custom-private-hpp: ../build-artifacts/RefProxy/RefProxyPrivate.hpp
 # custom-cpp: ../build-artifacts/RefProxy/RefProxyCustom.cpp
 
-# Prepend this to every generated type name, if one would otherwise clash with a
-# framework type of the same leaf name.
-type-prefix: ""
+# ---------------------------------------------------------------------------------------
+# What the component decodes, and how it is built
+# ---------------------------------------------------------------------------------------
 
-# Path prefix for the #include of the autocoded base class; normally the component's
-# directory relative to the project root.  Defaults to the output directory's path
-# below the nearest settings.ini, project.cmake or library.cmake, and unlike the paths
-# above it is an include path, not a filesystem path.
-# include-prefix: Ref/RefProxy
-
-# The port type comIn receives the remote's packets on.  com: Fw.Com, as
-# FprimeRouter's commandOut emits.  buffer: Fw.BufferSend, as PassThroughRouter's
-# allPacketsOut emits; each buffer is copied out and handed straight back on a
-# comReturnOut port, which connects to the router's allPacketsReturnIn.
+# com-in: one of
+#   com     (default) comIn takes Fw.Com, as FprimeRouter's commandOut emits
+#   buffer  comIn takes Fw.BufferSend, as PassThroughRouter's allPacketsOut emits; each
+#           buffer is copied out and handed straight back on a comReturnOut port, which
+#           connects to the router's allPacketsReturnIn
+# Component kinds only.
 com-in: com
 
 # These read positively, where the flags that set them read negatively
-# (--no-packetized, --no-channelized, --no-diagnostics).  With channelized off, only
-# telemetry packets are decoded, and a channel no decoded packet carries is not
-# declared, since nothing would ever write it.
+# (--no-packetized, --no-channelized, --no-diagnostics).
+#
+# packetized: one of
+#   true   (default) decode telemetry packets (FW_PACKET_PACKETIZED_TLM); with
+#          kind: types, emit a struct per packet
+#   false  ignore them, and declare no packet struct
+# channelized: one of
+#   true   (default) decode channelized telemetry (FW_PACKET_TELEM)
+#   false  decode only telemetry packets; a channel no decoded packet carries is then
+#          not declared, since nothing would ever write it
+# diagnostics: one of
+#   true   (default) declare the proxy's own health telemetry and events, without which
+#          a dropping link looks the same as a quiet one
+#   false  leave them out; nothing else is renumbered, since their ids come last
 packetized: true
 channelized: true
 diagnostics: true
 
-# Run the generated C++ through clang-format.  On, and an error if clang-format is
-# not on PATH.  true takes the nearest .clang-format above the output directory, or
-# name a style: clang-format: Google
+# With kind: types, every command's opcode and every packet's id is declared as an FPP
+# constant (Opcode.dpDemo_SelectColor = 0xA10, PacketId.CDH = 0x1).  These two put it
+# in the struct as well.
+#
+# opcode-field: one of (kind: types only)
+#   false  (default) a command struct holds only the command's arguments
+#   true   its first member is the opcode, defaulted to the command's constant:
+#          struct dpDemo_SelectColor { $opcode: Remote_FwOpcodeType, ... }
+#          default { $opcode = Opcode.dpDemo_SelectColor }
+# packet-id-field: one of (kind: types only)
+#   false  (default) a packet struct holds only the packet's channels
+#   true   its first member is the packet id, defaulted to the packet's constant:
+#          struct CDH { $id: Remote_FwTlmPacketizeIdType, ... }
+#          default { $id = PacketId.CDH }
+# opcode-field: true
+# packet-id-field: true
+
+# include-prefix: an #include path, not a filesystem path.  The prefix for the #include
+# of the autocoded base class; normally the component's directory relative to the
+# project root.  By default, the output directory's path below the nearest
+# settings.ini, project.cmake or library.cmake.
+# include-prefix: Ref/RefProxy
+
+# clang-format: one of
+#   true          (default) run the generated C++ through clang-format, using the
+#                 nearest .clang-format above the output directory; an error if
+#                 clang-format is not on PATH
+#   false         leave the C++ as generated
+#   a style name  run clang-format with that style, e.g. clang-format: Google
 clang-format: true
 
-# Rewrite CMakeLists.txt from the current file list.  Off, so that whatever this
-# project has added to it -- a dependency the FPP model does not imply, a target
-# property -- survives a regeneration.  Turn it on when the file list itself changes,
-# which is what turning packetized or channelized off does.
+# cmake: one of
+#   false  (default) write CMakeLists.txt only if it does not exist, so that whatever
+#          this project has added to it -- a dependency the FPP model does not imply, a
+#          target property -- survives a regeneration
+#   true   rewrite it from the current file list; do this when the file list itself
+#          changes, which is what turning packetized or channelized off does
 cmake: false
 
-# Also parse the dictionary with fprime-gds and report any disagreement.
+# ---------------------------------------------------------------------------------------
+# The run itself
+# ---------------------------------------------------------------------------------------
+
+# cross-check: one of
+#   false  (default) parse the dictionary once
+#   true   also parse it with fprime-gds and report any disagreement; needs
+#          `pip install 'fprime-dict-to-cpp[gds]'`
 cross-check: false
 
-# dry-run: report what would be generated without writing it.  quiet: only warnings
-# and errors.
+# dry-run: one of
+#   false  (default) generate
+#   true   report what would be generated without writing anything
 dry-run: false
+
+# quiet: one of
+#   false  (default) summarise the run
+#   true   only report warnings and errors
 quiet: false

@@ -21,10 +21,19 @@ from fprime_cpp_codegen import CppCodegenError
 from . import config_file, dictionary, interactive
 from .cpp import cpp_file_names
 from .fpp import fpp_file_names
-from .generate import CustomFileError, Generated, check_custom_files, generate
+from .fpp.structs import struct_file_names
+from .generate import (
+    CustomFileError,
+    Generated,
+    GeneratedTypes,
+    check_custom_files,
+    generate,
+    generate_types,
+)
 from .model import Dictionary, DictionaryError, NamingError
 from .options import Invalid, Options, Shape, Spec, specs
 from .plan import Config, Plan, resolve
+from .structs import StructsPlan, TypesConfigError, resolve_structs
 
 __all__ = ["build_parser", "main"]
 
@@ -44,6 +53,9 @@ examples:
 
   # Keep the remote's own casing conventions
   fprime-dict-to-cpp dict.json -o out --naming source-case
+
+  # No component: just FPP structs and constants for each command and telemetry packet
+  fprime-dict-to-cpp dict.json -o RefTypes --kind types
 
   # Just report what would be generated
   fprime-dict-to-cpp dict.json --dry-run
@@ -216,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
 
     output, config = options.settle(parsed.metadata.deployment_identifier)
 
+    if not config.kind.is_component:
+        return _run_types(parsed, config, output, options)
+
     try:
         if options.dry_run:
             return _report_dry_run(parsed, config, output, quiet=options.quiet)
@@ -243,6 +258,56 @@ def main(argv: list[str] | None = None) -> int:
     if not options.quiet:
         _report(result, scaffold)
     return 0
+
+
+def _run_types(
+    parsed: Dictionary, config: Config, output: Path, options: Options
+) -> int:
+    """A ``types`` run: the structs, and nothing that makes a component."""
+    try:
+        if options.dry_run:
+            plan = resolve_structs(parsed, config)
+            result = None
+        else:
+            result = generate_types(parsed, output, config)
+            plan = result.plan
+    except (DictionaryError, NamingError) as error:
+        print(f"error: {_attributed(error, options)}", file=sys.stderr)
+        return 2
+    except TypesConfigError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+
+    for warning in plan.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    if options.quiet:
+        return 0
+    _report_types(plan)
+    if result is None:
+        print(f"  would write into {output}/:")
+        for name in struct_file_names(plan):
+            print(f"    {name}")
+        return 0
+    for path in result.files:
+        print(f"  {_state(path, result):9s} {path}")
+    print(
+        f"\nDeclared in module {config.namespace}; list them among a module's "
+        "AUTOCODER_INPUTS to build them."
+    )
+    return 0
+
+
+def _report_types(plan: StructsPlan) -> None:
+    """Summarise what a ``types`` run declares."""
+    print(
+        f"{plan.config.component}: {len(plan.commands)} command structs, "
+        f"{len(plan.packets)} telemetry packet structs"
+    )
+    print(
+        f"  {len(plan.type_defs)} type definitions, of the "
+        f"{len(plan.dictionary.type_defs)} in the dictionary; the rest are unreachable "
+        "from any struct"
+    )
 
 
 def _attributed(error: Exception, options: Options) -> str:
@@ -347,9 +412,9 @@ def _report(result: Generated, scaffold: interactive.Scaffold | None = None) -> 
         )
 
 
-def _state(path: Path, result: Generated) -> str:
+def _state(path: Path, result: Generated | GeneratedTypes) -> str:
     """What happened to one file: written, already right, or left as it was found."""
-    if path in result.kept:
+    if isinstance(result, Generated) and path in result.kept:
         return "kept"
     if path in result.removed:
         return "removed"

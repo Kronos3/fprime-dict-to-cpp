@@ -229,9 +229,97 @@ therefore what the proxy's own commands can be:
 | `queued` | `async input port` | whatever drives `run` | `async` |
 | `passive` | `sync input port` | the caller's thread | `guarded` |
 
+`types` is not a component at all; see [Structs only](#structs-only-kind-types).
+
 A queued component owns a queue but no thread, so its `run` handler calls
 `dispatchCurrentMessages()`; connect it to a rate group. A passive component cannot
 declare an `async` command however the remote declared it, so its commands are `guarded`.
+
+### Structs only (`kind: types`)
+
+```yaml
+kind: types
+```
+
+This generates no component, no C++ and no `CMakeLists.txt`. You get a struct per command,
+holding its arguments, and a struct per telemetry packet, holding its channels in wire
+order, plus an FPP constant for each opcode and packet id. Everything is declared inside
+`namespace`, in three `.fpp` files:
+
+| File | What it declares |
+| --- | --- |
+| `<Name>Types.fpp` | every type the structs reach, flattened: `Ref_DpDemo_ColorEnum`, `Remote_FwSizeType` |
+| `<Name>Commands.fpp` | `Opcode.dpDemo_SelectColor = 0xA10`, and `Command.dpDemo_SelectColor { color: Ref_DpDemo_ColorEnum }` |
+| `<Name>Packets.fpp` | `PacketId.CDH = 0x1`, and `Packet.CDH { cmdDisp_CommandsDispatched: U32 ... }` |
+
+`<Name>` is `component`, which defaults to `<Deployment>Types` (`RefTypes`), and so does
+`namespace`. A file with nothing in it is not written. List the files among a module's
+`AUTOCODER_INPUTS` to build them; the other two need the types file in the same build.
+Nothing else is needed: the dictionary is the only interface, so nothing refers to the
+remote's own FPP.
+
+```
+module RefTypes {
+  @ The remote's opcode for each command
+  module Opcode {
+    constant dpDemo_SelectColor = 0xA10 @< [Ref.dpDemo.SelectColor]
+    ...
+  }
+
+  @ Each command's arguments
+  module Command {
+    @ Select color
+    @ [Ref.dpDemo.SelectColor] opcode Opcode.dpDemo_SelectColor
+    struct dpDemo_SelectColor {
+      color: Ref_DpDemo_ColorEnum
+    }
+    ...
+  }
+}
+```
+
+In C++ these are `RefTypes::Command::dpDemo_SelectColor` and
+`RefTypes::Opcode::dpDemo_SelectColor`.
+
+* **Every type a struct reaches is defined here**, mirrored from the dictionary with
+  its qualified name flattened (`Ref.DpDemo.ColorEnum` becomes `Ref_DpDemo_ColorEnum`),
+  just as in component mode. The names are flattened rather than nested, because
+  `fpp-to-cpp` names a generated file after a type's leaf name alone, and the Ref
+  dictionary has two `DpReqType`s and two `Enabled`s. Nesting would also put the remote's
+  `Fw.Enabled` in a `RefTypes::Fw` C++ namespace, inside which the autocoded
+  `Fw::Serializable` no longer finds the framework's.
+* **A top-level type is declared as `Remote_<name>`.** `FwSizeType`, `FwIndexType` and
+  the like are the remote *platform's* widths, and this project has its own, which need
+  not agree. `Remote_FwSizeType` resolves to the width the remote serialized with.
+* **Struct names are unique across `Command`, `Packet` and the types**, though they are
+  in separate modules, for the same file-naming reason. A derived name that collides gets
+  a `_2` suffix, with a warning. A name chosen with `names` that collides with a type is
+  an error.
+* `opcode-field: true` puts each command's opcode in its struct, as the first member,
+  and defaults it to the opcode's constant. `packet-id-field: true` does the same for
+  each packet's id:
+
+  ```
+  struct dpDemo_SelectColor {
+    $opcode: Remote_FwOpcodeType @< The remote's opcode for this command
+    color: Ref_DpDemo_ColorEnum
+  } default { $opcode = Opcode.dpDemo_SelectColor }
+
+  struct CDH {
+    $id: Remote_FwTlmPacketizeIdType @< The remote's id for this packet
+    ...
+  } default { $id = PacketId.CDH }
+  ```
+
+  A struct built with no arguments then already says which command or packet it is.
+  Each member is declared at the remote's width. If an argument or channel already
+  has the name, the member gets a trailing underscore (`opcode_`).
+* `naming` and `names` name the structs and the packet fields as they would name members.
+  `omit` and `omit-commands` drop command structs. `packetized: false` drops the packet
+  structs.
+* Options that only mean something for a component are refused, not ignored: the port
+  tables, `omit-events`, `omit-telemetry`, `type-names`, `type-prefix`, `com-in` and the
+  `custom-*` files.
 
 ### Name mangling
 

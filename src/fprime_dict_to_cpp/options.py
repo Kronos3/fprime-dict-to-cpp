@@ -415,7 +415,8 @@ class Options:
         Spec(
             "component",
             short=("-c",),
-            note="the generated component's name; <Deployment>Proxy by default",
+            note="the generated component's name; <Deployment>Proxy by default.  For kind "
+            "types, the stem of each file's name instead; <Deployment>Types by default",
         ),
         default=None,
     )
@@ -424,8 +425,8 @@ class Options:
         Spec(
             "namespace",
             short=("-n",),
-            note="the FPP module holding the component and its types; the component's "
-            "own name by default",
+            note="the FPP module holding the component and its types, or with kind types "
+            "the structs and constants; the component's own name by default",
         ),
         default=None,
     )
@@ -436,7 +437,9 @@ class Options:
             short=("-k",),
             show_default=True,
             note="active: decode on the component's own thread.  queued: on whatever "
-            "drives its run port.  passive: on the caller's thread, with guarded commands",
+            "drives its run port.  passive: on the caller's thread, with guarded commands.  "
+            "types: no component, only FPP structs for each command's arguments and each "
+            "telemetry packet's channels, and constants for their opcodes and ids",
         ),
         default=ComponentKind.ACTIVE,
     )
@@ -697,6 +700,26 @@ class Options:
         default="",
     )
 
+    opcode_field: bool = option(
+        Spec(
+            "opcode-field",
+            group="output",
+            note="kind types only: give each command struct an opcode member, first, "
+            "defaulted to the constant holding that command's remote opcode",
+        ),
+        default=False,
+    )
+
+    packet_id_field: bool = option(
+        Spec(
+            "packet-id-field",
+            group="output",
+            note="kind types only: give each packet struct an id member, first, "
+            "defaulted to the constant holding that packet's id",
+        ),
+        default=False,
+    )
+
     include_prefix: str | None = option(
         Spec(
             "include-prefix",
@@ -820,8 +843,15 @@ class Options:
         return cls(**{f.name: getattr(namespace, f.name) for f in fields(cls)})
 
     def component_for(self, deployment: str) -> str:
-        """The component's name: the one asked for, or one named for the deployment."""
-        return self.component or f"{deployment}Proxy"
+        """The component's name: the one asked for, or one named for the deployment.
+
+        A ``types`` run has no component, so it is ``<Deployment>Types``: the stem of its
+        file names, and by default the module it declares into -- which is deliberately
+        not the deployment's own name, the remote's outermost module.
+        """
+        if self.component:
+            return self.component
+        return f"{deployment}Proxy" if self.kind.is_component else f"{deployment}Types"
 
     def output_for(self, component: str) -> Path:
         """Where the component goes: the directory asked for, or one named for it."""
@@ -873,6 +903,8 @@ class Options:
             packetized=self.packetized,
             channelized=self.channelized,
             diagnostics=self.diagnostics,
+            opcode_field=self.opcode_field,
+            packet_id_field=self.packet_id_field,
             include_prefix=self.include_prefix_for(output),
             custom_fpp=_relative_to(self.custom_fpp, output),
             custom_public_hpp=_relative_to(self.custom_public_hpp, output),

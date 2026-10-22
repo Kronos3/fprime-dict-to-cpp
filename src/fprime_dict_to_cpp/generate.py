@@ -14,15 +14,19 @@ from .cpp import cpp_file_names, render_implementation
 from .cpp.component import SECTIONS
 from .fpp import render_fpp
 from .fpp.files import FRAGMENTS
+from .fpp.structs import STRUCT_FILES, render_structs
 from .model import Dictionary
 from .plan import Config, Plan, resolve
+from .structs import StructsPlan, resolve_structs
 
 __all__ = [
     "CustomFileError",
     "Generated",
+    "GeneratedTypes",
     "check_custom_files",
     "generate",
     "generate_from_plan",
+    "generate_types",
 ]
 
 
@@ -113,6 +117,57 @@ def generate(
         clang_format=clang_format,
         cmake=cmake,
         extra_warnings=extra,
+    )
+
+
+@dataclass(frozen=True)
+class GeneratedTypes:
+    """What a ``types`` run produced."""
+
+    directory: Path
+    plan: StructsPlan
+    written: list[Path] = field(default_factory=list)
+    unchanged: list[Path] = field(default_factory=list)
+    removed: list[Path] = field(default_factory=list)
+    """Files an earlier run wrote that this one no longer populates.
+
+    Removed for the reason :attr:`Generated.removed` is: an include of a stale file would
+    still declare structs for what the configuration has since left out.
+    """
+
+    @property
+    def files(self) -> list[Path]:
+        return sorted([*self.written, *self.unchanged, *self.removed])
+
+    @property
+    def warnings(self) -> tuple[str, ...]:
+        return self.plan.warnings
+
+
+def generate_types(
+    parsed: Dictionary, output: str | Path, config: Config
+) -> GeneratedTypes:
+    """Write the ``types`` files for an already-parsed dictionary into ``output``."""
+    plan = resolve_structs(parsed, config)
+    directory = Path(output)
+    directory.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    unchanged: list[Path] = []
+    removed: list[Path] = []
+    files = render_structs(plan)
+    for name, text in files.items():
+        _write(directory / name, text, written, unchanged)
+    for section in STRUCT_FILES:
+        stale = directory / f"{config.component}{section}.fpp"
+        if stale.name not in files and _is_generated(stale):
+            stale.unlink()
+            removed.append(stale)
+    return GeneratedTypes(
+        directory=directory,
+        plan=plan,
+        written=written,
+        unchanged=unchanged,
+        removed=removed,
     )
 
 

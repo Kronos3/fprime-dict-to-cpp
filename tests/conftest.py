@@ -24,6 +24,9 @@ REF_DICTIONARY = Path(__file__).parent / "data" / "RefTopologyDictionary.json"
 
 GOLDENS = Path(__file__).parent / "goldens"
 
+#: Every kind that generates a component; ``types`` generates only structs.
+COMPONENT_KINDS = [kind for kind in ComponentKind if kind.is_component]
+
 #: Set to rewrite the golden files instead of comparing against them.  Review the diff
 #: that appears in ``git status`` afterwards -- that diff is the point of having them.
 UPDATE_GOLDENS = os.environ.get("FDTC_UPDATE_GOLDENS") == "1"

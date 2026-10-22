@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 import pytest
+from conftest import COMPONENT_KINDS
 
 from fprime_dict_to_cpp.fpp import (
     escape,
@@ -255,7 +256,7 @@ class TestGeneratedModel:
         assert "$size: U32" in text or "$size:" in text
         assert re.search(r"\$status\b|\$size\b|\$block\b", text)
 
-    @pytest.mark.parametrize("kind", list(ComponentKind))
+    @pytest.mark.parametrize("kind", COMPONENT_KINDS)
     def test_no_tabs_anywhere(self, ref: Dictionary, kind: ComponentKind) -> None:
         # A tab is a lexical error in FPP outside strings and comments.
         plan = resolve(

@@ -18,6 +18,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from conftest import COMPONENT_KINDS
 
 import build_probe
 from fpptools import Toolchain, find_toolchain
@@ -55,7 +56,7 @@ def _write_model(directory: Path, plan: Plan) -> Path:
 class TestFppCheck:
     """``fpp-check`` is the authority on whether the generated model is legal."""
 
-    @pytest.mark.parametrize("kind", list(ComponentKind))
+    @pytest.mark.parametrize("kind", COMPONENT_KINDS)
     @pytest.mark.parametrize("naming", sorted(PRESETS))
     def test_accepts_every_kind_and_naming_combination(
         self,
@@ -79,7 +80,7 @@ class TestFppCheck:
         result = toolchain.check(model_file)
         assert result.returncode == 0, result.stdout + result.stderr
 
-    @pytest.mark.parametrize("kind", list(ComponentKind))
+    @pytest.mark.parametrize("kind", COMPONENT_KINDS)
     def test_accepts_a_buffer_com_in(
         self, toolchain: Toolchain, ref: Dictionary, tmp_path: Path, kind: ComponentKind
     ) -> None:
@@ -158,7 +159,7 @@ class TestFppCheck:
 class TestAutocodeAndCompile:
     """The full path: generate, autocode, compile against the generated base class."""
 
-    @pytest.mark.parametrize("kind", list(ComponentKind))
+    @pytest.mark.parametrize("kind", COMPONENT_KINDS)
     def test_compiles(
         self, toolchain: Toolchain, tmp_path: Path, kind: ComponentKind
     ) -> None:
@@ -294,7 +295,7 @@ GLOBBED: dict[str, object] = {
 class TestHookedPorts:
     """The port hooks and ``omit``, which change both halves of the output at once."""
 
-    @pytest.mark.parametrize("kind", list(ComponentKind))
+    @pytest.mark.parametrize("kind", COMPONENT_KINDS)
     def test_fpp_check_accepts_hooked_ports(
         self, toolchain: Toolchain, ref: Dictionary, tmp_path: Path, kind: ComponentKind
     ) -> None:

@@ -16,13 +16,21 @@ it: the wire widths are declared in the model, beside the members they apply to.
 
 from __future__ import annotations
 
-from ..model import AliasDef, ArrayDef, EnumDef, StructDef, TypeDef
+from collections.abc import Callable
+
+from ..model import AliasDef, ArrayDef, EnumDef, StructDef, TypeDef, TypeRef
 from ..plan import Plan
 from ..spelling import safe_identifier
 from .keywords import escape
 from .writer import FppWriter, string_literal
 
-__all__ = ["render_types"]
+__all__ = ["render_definition", "render_types"]
+
+#: Spells a type at a use site.
+Spell = Callable[[TypeRef], str]
+
+#: Names a definition, given its dictionary qualified name.
+Name = Callable[[str], str]
 
 
 def render_types(plan: Plan) -> str:
@@ -44,7 +52,7 @@ def render_types(plan: Plan) -> str:
     )
     for alias in plan.spelling.wire_type_defs():
         writer.blank()
-        _alias(writer, plan, alias)
+        _alias(writer, alias, _namer(plan), plan.spelling.fpp_type)
 
     writer.banner("Mirrored types")
     writer.comment(
@@ -57,7 +65,7 @@ def render_types(plan: Plan) -> str:
     )
     for definition in plan.spelling.type_defs():
         writer.blank()
-        _definition(writer, plan, definition)
+        render_definition(writer, definition, _namer(plan), plan.spelling.fpp_type)
     return writer.render()
 
 
@@ -76,29 +84,33 @@ def _preamble(writer: FppWriter, plan: Plan) -> None:
     )
 
 
-def _definition(writer: FppWriter, plan: Plan, definition: TypeDef) -> None:
-    """Render one type definition."""
+def render_definition(
+    writer: FppWriter, definition: TypeDef, named: Name, spell: Spell
+) -> None:
+    """Render one type definition, called ``named(qualified)``, its uses spelled by ``spell``.
+
+    Both are passed in because the two modes spell types differently: a component
+    flattens every name into itself, a types file names the remote's types as written.
+    """
     if isinstance(definition, EnumDef):
-        _enum(writer, plan, definition)
+        _enum(writer, definition, named, spell)
     elif isinstance(definition, ArrayDef):
-        _array(writer, plan, definition)
+        _array(writer, definition, named, spell)
     elif isinstance(definition, StructDef):
-        _struct(writer, plan, definition)
+        _struct(writer, definition, named, spell)
     elif isinstance(definition, AliasDef):
-        _alias(writer, plan, definition)
+        _alias(writer, definition, named, spell)
 
 
-def _name(plan: Plan, qualified: str) -> str:
-    """The generated, escaped name for a type definition."""
-    return escape(plan.spelling.namer.flat(qualified))
+def _namer(plan: Plan) -> Name:
+    """The generated, escaped name for a component's type definition."""
+    return lambda qualified: escape(plan.spelling.namer.flat(qualified))
 
 
-def _enum(writer: FppWriter, plan: Plan, definition: EnumDef) -> None:
+def _enum(writer: FppWriter, definition: EnumDef, named: Name, spell: Spell) -> None:
     writer.annotate(_origin(definition.qualified_name, definition.annotation))
-    representation = plan.spelling.fpp_type(definition.representation)
-    with writer.block(
-        f"enum {_name(plan, definition.qualified_name)}: {representation} {{"
-    ):
+    representation = spell(definition.representation)
+    with writer.block(f"enum {named(definition.qualified_name)}: {representation} {{"):
         for constant in definition.constants:
             # An enum constant reaches the generated C++ bare, so it has to survive
             # both FPP's keyword table and C++'s.
@@ -109,24 +121,25 @@ def _enum(writer: FppWriter, plan: Plan, definition: EnumDef) -> None:
             writer.line(f"{name} = {constant.value}{suffix}")
 
 
-def _array(writer: FppWriter, plan: Plan, definition: ArrayDef) -> None:
+def _array(writer: FppWriter, definition: ArrayDef, named: Name, spell: Spell) -> None:
     writer.annotate(_origin(definition.qualified_name, definition.annotation))
-    element = plan.spelling.fpp_type(definition.element)
+    element = spell(definition.element)
     head = (
-        f"array {_name(plan, definition.qualified_name)} = "
-        f"[{definition.size}] {element}"
+        f"array {named(definition.qualified_name)} = " f"[{definition.size}] {element}"
     )
     if definition.format:
         head = f"{head} format {string_literal(definition.format)}"
     writer.line(head)
 
 
-def _struct(writer: FppWriter, plan: Plan, definition: StructDef) -> None:
+def _struct(
+    writer: FppWriter, definition: StructDef, named: Name, spell: Spell
+) -> None:
     writer.annotate(_origin(definition.qualified_name, definition.annotation))
-    with writer.block(f"struct {_name(plan, definition.qualified_name)} {{"):
+    with writer.block(f"struct {named(definition.qualified_name)} {{"):
         for member in definition.members:
             name = escape(safe_identifier(member.name))
-            element = plan.spelling.fpp_type(member.type)
+            element = spell(member.type)
             # An inline array member: "arrayMemberU32: [2] U32".
             spelled = (
                 f"[{member.array_size}] {element}" if member.array_size else element
@@ -139,15 +152,15 @@ def _struct(writer: FppWriter, plan: Plan, definition: StructDef) -> None:
             writer.line(text)
 
 
-def _alias(writer: FppWriter, plan: Plan, definition: AliasDef) -> None:
+def _alias(writer: FppWriter, definition: AliasDef, named: Name, spell: Spell) -> None:
     note = definition.annotation
     if definition.target.name != definition.underlying.name:
         # Record what was collapsed, since the generated alias no longer shows it.
         chased = f"resolved from {definition.target.name} to pin the remote's width"
         note = f"{note}\n{chased}" if note else chased
     writer.annotate(_origin(definition.qualified_name, note))
-    underlying = plan.spelling.fpp_type(definition.underlying)
-    writer.line(f"type {_name(plan, definition.qualified_name)} = {underlying}")
+    underlying = spell(definition.underlying)
+    writer.line(f"type {named(definition.qualified_name)} = {underlying}")
 
 
 def _origin(qualified: str, annotation: str | None) -> str:

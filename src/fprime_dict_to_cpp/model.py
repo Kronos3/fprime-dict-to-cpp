@@ -259,16 +259,26 @@ class CommandKind(Enum):
 
 
 class ComponentKind(Enum):
-    """The proxy component's own threading model.
+    """The proxy component's own threading model, or no component at all.
 
     This decides *where* an inbound packet is decoded, and it constrains what the
     proxy's own commands may be: a passive component has no queue, so it cannot
     declare an ``async`` command or an ``async`` input port.
+
+    :attr:`TYPES` generates no component: only FPP structs naming each command's
+    arguments and each telemetry packet's channels, and constants for their opcodes
+    and ids.
     """
 
     PASSIVE = "passive"
     QUEUED = "queued"
     ACTIVE = "active"
+    TYPES = "types"
+
+    @property
+    def is_component(self) -> bool:
+        """Whether this kind generates a component, rather than only types."""
+        return self is not ComponentKind.TYPES
 
     @property
     def has_queue(self) -> bool:

@@ -313,6 +313,17 @@ class Config:
     *after* every mirrored member's, so turning them off does not renumber anything.
     """
 
+    opcode_field: bool = False
+    """Whether each command struct of a ``types`` run carries the command's opcode.
+
+    As its first member, defaulted to the remote's opcode for that command, so a struct
+    built with no arguments already says which command it is.  Only a ``types`` run has
+    command structs, so a component kind refuses it.
+    """
+
+    packet_id_field: bool = False
+    """The same for each packet struct of a ``types`` run, with the packet's id."""
+
     include_prefix: str = ""
     """Path prefix for the generated ``#include`` of the autocoded base class.
 
@@ -772,6 +783,15 @@ def resolve(dictionary: Dictionary, config: Config) -> Plan:
     regeneration that reshuffled them would silently invalidate archived telemetry.
     """
     warnings: list[str] = []
+    for key, given in (
+        ("opcode-field", config.opcode_field),
+        ("packet-id-field", config.packet_id_field),
+    ):
+        if given:
+            raise NamingError(
+                f"{key} adds a member to the structs only kind types generates; "
+                "remove it, or set kind: types"
+            )
     _check_name_overrides(dictionary, config)
     ports = _resolve_hooks(dictionary, config)
     _check_port_hooks(config, ports)

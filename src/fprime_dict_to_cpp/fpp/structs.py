@@ -86,16 +86,6 @@ def _render_types(plan: StructsPlan) -> str:
     writer = FppWriter()
     _preamble(writer, plan, "every type the structs use", needs_types=False)
     with writer.module(plan.config.namespace):
-        writer.comment(
-            "The remote's types, mirrored from its dictionary.  Names are its qualified\n"
-            "names flattened with '_', because fpp-to-cpp derives a generated file name\n"
-            "from a type's leaf name and rejects duplicates.  A type the remote declared\n"
-            "outside of any module is prefixed 'Remote_' instead, since this project has\n"
-            "its own FwSizeType and friends, which need not agree with the remote's.\n"
-            "\n"
-            "Aliases resolve to the width the REMOTE serialized with, and defaults are\n"
-            "left out: each type falls back to its zero value."
-        )
         for definition in plan.type_defs:
             writer.blank()
             render_definition(

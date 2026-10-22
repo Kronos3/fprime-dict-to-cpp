@@ -7,14 +7,6 @@
 # Do not edit: regenerate from the dictionary instead.
 
 module RefTypes {
-  # The remote's types, mirrored from its dictionary.  Names are its qualified
-  # names flattened with '_', because fpp-to-cpp derives a generated file name
-  # from a type's leaf name and rejects duplicates.  A type the remote declared
-  # outside of any module is prefixed 'Remote_' instead, since this project has
-  # its own FwSizeType and friends, which need not agree with the remote's.
-  #
-  # Aliases resolve to the width the REMOTE serialized with, and defaults are
-  # left out: each type falls back to its zero value.
 
   @ A bit mask for selecting the type of processing to perform on
   @ a container before writing it to disk.
